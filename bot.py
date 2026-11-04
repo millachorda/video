@@ -2,45 +2,114 @@ import os
 import sys
 import random
 import asyncio
+import textwrap
+
 import requests
+import numpy as np
 import edge_tts
+from PIL import Image, ImageDraw, ImageFont
 from telegram import Bot
-from moviepy.editor import VideoFileClip, AudioFileClip, TextClip, CompositeVideoClip, concatenate_videoclips
+from moviepy.editor import VideoFileClip, AudioFileClip, ImageClip, CompositeVideoClip, concatenate_videoclips
 from moviepy.video.fx.all import crop, loop
 
+# ---------------------------------------------------------------
+# Configuración
+# ---------------------------------------------------------------
 PEXELS_API_KEY = os.environ.get("PEXELS_API_KEY")
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
 
-FUENTE = "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"
+VOZ = "es-ES-AlvaroNeural"
+BUSQUEDA_PEXELS = "mystery dark"
 ANCHO, ALTO = 1080, 1920
+AVISO_HISTORIAS_RESTANTES = 15  # Avisa por Telegram cuando queden menos de estas
+
+FUENTES_POSIBLES = [
+    "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+]
+
+
+def elegir_fuente():
+    for ruta in FUENTES_POSIBLES:
+        if os.path.exists(ruta):
+            return ruta
+    print("ERROR: no se encontró ninguna fuente TrueType en el sistema.")
+    sys.exit(1)
 
 
 def ajustar_vertical(clip):
-    """Escala y recorta al centro a 1080x1920 sin deformar."""
+    """Escala y recorta al centro a 1080x1920 sin deformar la imagen."""
     clip = clip.resize(height=ALTO)
     if clip.w < ANCHO:
         clip = clip.resize(width=ANCHO)
     return crop(clip, width=ANCHO, height=ALTO, x_center=clip.w / 2, y_center=clip.h / 2)
 
 
+def crear_subtitulos(texto, duracion, ruta_fuente, palabras_por_bloque=6):
+    """Subtítulos amarillos con borde negro, por bloques, repartidos según la longitud de cada bloque."""
+    palabras = texto.split()
+    bloques = [" ".join(palabras[i:i + palabras_por_bloque]) for i in range(0, len(palabras), palabras_por_bloque)]
+    total_caracteres = sum(len(b) for b in bloques)
+    fuente = ImageFont.truetype(ruta_fuente, 80)
+    alto_linea = 100
+
+    clips = []
+    inicio = 0.0
+    for bloque in bloques:
+        dur = duracion * len(bloque) / total_caracteres
+        lineas = textwrap.wrap(bloque, width=18)
+        alto_img = alto_linea * len(lineas) + 40
+        img = Image.new("RGBA", (ANCHO, alto_img), (0, 0, 0, 0))
+        dibujo = ImageDraw.Draw(img)
+        y = 20
+        for linea in lineas:
+            ancho_txt = dibujo.textlength(linea, font=fuente)
+            dibujo.text(((ANCHO - ancho_txt) / 2, y), linea, font=fuente,
+                        fill=(255, 230, 0, 255), stroke_width=5, stroke_fill=(0, 0, 0, 255))
+            y += alto_linea
+        clip = (ImageClip(np.array(img))
+                .set_start(inicio)
+                .set_duration(dur)
+                .set_position(("center", "center")))
+        clips.append(clip)
+        inicio += dur
+    return clips
+
+
+def descargar(url, destino):
+    with requests.get(url, stream=True, timeout=60) as r:
+        r.raise_for_status()
+        with open(destino, "wb") as f:
+            for trozo in r.iter_content(1024 * 1024):
+                f.write(trozo)
+
+
 async def main():
-    for nombre, valor in [("PEXELS_API_KEY", PEXELS_API_KEY), ("TELEGRAM_TOKEN", TELEGRAM_TOKEN), ("TELEGRAM_CHAT_ID", TELEGRAM_CHAT_ID)]:
+    # Comprobar secretos
+    for nombre, valor in [("PEXELS_API_KEY", PEXELS_API_KEY),
+                          ("TELEGRAM_TOKEN", TELEGRAM_TOKEN),
+                          ("TELEGRAM_CHAT_ID", TELEGRAM_CHAT_ID)]:
         if not valor:
             print(f"ERROR: falta el secret {nombre}.")
             sys.exit(1)
 
+    ruta_fuente = elegir_fuente()
+
+    # -----------------------------------------------------------
+    # 1. Leer contador e historia
+    # -----------------------------------------------------------
     print("[1/7] Iniciando lectura de archivos del repositorio...")
     if not os.path.exists("contador.txt"):
         with open("contador.txt", "w") as f:
             f.write("1")
     with open("contador.txt", "r") as f:
-        n_episodio = f.read().strip()
+        n_episodio = f.read().strip() or "1"
 
     if not os.path.exists("historias.txt") or os.stat("historias.txt").st_size == 0:
         print("ERROR: El archivo historias.txt está vacío o no existe.")
         sys.exit(1)
-    with open("historias.txt", "r", encoding="utf-8") as f:
+    with open("historias.txt", "r", encoding="utf-8-sig") as f:
         lineas = [l for l in f.readlines() if l.strip()]
     if not lineas:
         print("ERROR: historias.txt solo contiene líneas vacías.")
@@ -50,17 +119,25 @@ async def main():
     historias_restantes = lineas[1:]
     print(f"Procesando: Caso Real - Episodio {n_episodio}")
 
-    # Voz con Edge-TTS (librería directa, sin os.system)
+    # -----------------------------------------------------------
+    # 2. Voz con Edge-TTS
+    # -----------------------------------------------------------
     print("[2/7] Generando locución de voz con Microsoft Edge-TTS...")
     archivo_audio = "voz_episodio.mp3"
-    await edge_tts.Communicate(historia_actual, "es-ES-AlvaroNeural").save(archivo_audio)
+    await edge_tts.Communicate(historia_actual, VOZ).save(archivo_audio)
 
-    # Pexels: endpoint correcto de la API de vídeos
+    audiovoz = AudioFileClip(archivo_audio)
+    duracion_objetivo = audiovoz.duration
+    print(f"Duración del episodio: {duracion_objetivo:.2f} segundos.")
+
+    # -----------------------------------------------------------
+    # 3. Vídeos de fondo de Pexels
+    # -----------------------------------------------------------
     print("[3/7] Buscando videos de fondo verticales en Pexels...")
     respuesta = requests.get(
         "https://api.pexels.com/videos/search",
         headers={"Authorization": PEXELS_API_KEY},
-        params={"query": "mystery dark", "orientation": "portrait", "per_page": 30},
+        params={"query": BUSQUEDA_PEXELS, "orientation": "portrait", "per_page": 30},
         timeout=30,
     )
     if respuesta.status_code != 200:
@@ -71,13 +148,10 @@ async def main():
         print("ERROR: Pexels no devolvió vídeos para la búsqueda.")
         sys.exit(1)
 
-    audiovoz = AudioFileClip(archivo_audio)
-    duracion_objetivo = audiovoz.duration
-    print(f"Duración del episodio: {duracion_objetivo:.2f} segundos. Descargando archivos visuales...")
-
-    clips_descargados = []
-    duracion_acumulada = 0
+    print("Descargando archivos visuales...")
     random.shuffle(videos)
+    clips_descargados = []
+    duracion_acumulada = 0.0
 
     for i, vid in enumerate(videos):
         if duracion_acumulada >= duracion_objetivo:
@@ -85,18 +159,18 @@ async def main():
         archivos = [f for f in vid.get("video_files", []) if f.get("link") and f.get("height")]
         if not archivos:
             continue
-        # Preferir verticales de al menos 1280 px de alto, sin pasarse a 4K
-        verticales = [f for f in archivos if f["height"] > f.get("width", 0) and 1280 <= f["height"] <= 1920]
-        elegido = max(verticales or archivos, key=lambda f: f["height"] if f["height"] <= 1920 else 0)
+        # Preferir verticales entre 1280 y 1920 px de alto (sin 4K, que ralentiza mucho)
+        verticales = [f for f in archivos if f["height"] > (f.get("width") or 0) and 1280 <= f["height"] <= 1920]
+        candidatos = verticales or [f for f in archivos if f["height"] <= 1920] or archivos
+        elegido = max(candidatos, key=lambda f: f["height"])
 
         nombre_clip = f"clip_{i}.mp4"
-        with requests.get(elegido["link"], stream=True, timeout=60) as r:
-            r.raise_for_status()
-            with open(nombre_clip, "wb") as f:
-                for trozo in r.iter_content(1024 * 1024):
-                    f.write(trozo)
-
-        clip = ajustar_vertical(VideoFileClip(nombre_clip).without_audio())
+        try:
+            descargar(elegido["link"], nombre_clip)
+            clip = ajustar_vertical(VideoFileClip(nombre_clip).without_audio())
+        except Exception as e:
+            print(f"Aviso: se descarta un clip por error: {e}")
+            continue
         clips_descargados.append(clip)
         duracion_acumulada += clip.duration
 
@@ -104,6 +178,9 @@ async def main():
         print("ERROR: no se pudo descargar ningún clip.")
         sys.exit(1)
 
+    # -----------------------------------------------------------
+    # 4. Montaje
+    # -----------------------------------------------------------
     print("[4/7] Iniciando motor de edición automatizada de video...")
     video_fondo = concatenate_videoclips(clips_descargados, method="compose")
     if video_fondo.duration >= duracion_objetivo:
@@ -112,18 +189,17 @@ async def main():
         video_fondo = loop(video_fondo, duration=duracion_objetivo)
     video_fondo = video_fondo.set_audio(audiovoz)
 
-    txt_clip = TextClip(
-        historia_actual, fontsize=60, color="yellow", font=FUENTE,
-        stroke_color="black", stroke_width=2, size=(900, None), method="caption",
-    ).set_position(("center", "center")).set_duration(duracion_objetivo)
+    subtitulos = crear_subtitulos(historia_actual, duracion_objetivo, ruta_fuente)
+    video_final = CompositeVideoClip([video_fondo] + subtitulos, size=(ANCHO, ALTO))
 
-    video_final = CompositeVideoClip([video_fondo, txt_clip], size=(ANCHO, ALTO))
-
+    # -----------------------------------------------------------
+    # 5. Renderizado
+    # -----------------------------------------------------------
     archivo_final_mp4 = f"Episodio_{n_episodio}.mp4"
     print("[5/7] Renderizando archivo final en formato vertical...")
     video_final.write_videofile(
         archivo_final_mp4, fps=24, codec="libx264", audio_codec="aac",
-        bitrate="4000k", preset="veryfast", threads=2,
+        bitrate="4000k", preset="veryfast", threads=2, logger=None,
     )
 
     tamano_mb = os.path.getsize(archivo_final_mp4) / (1024 * 1024)
@@ -132,6 +208,9 @@ async def main():
         print("ERROR: el vídeo supera el límite de 50 MB de Telegram para bots.")
         sys.exit(1)
 
+    # -----------------------------------------------------------
+    # 6. Envío a Telegram
+    # -----------------------------------------------------------
     print("[6/7] Conectando con los servidores de Telegram...")
     mensaje_texto = (
         f"🎬 ¡TU VIDEO ESTÁ LISTO!\n\n"
@@ -140,6 +219,7 @@ async def main():
         f"🏷️ *Hashtags optimizados para pegar:*\n"
         f"#Shorts #TikTokViral #Misterio #CasosReales #HistoriasIA #ReelsMundo #Enigma #Episodio{n_episodio}"
     )
+
     bot = Bot(token=TELEGRAM_TOKEN)
     async with bot:
         with open(archivo_final_mp4, "rb") as video_file:
@@ -148,8 +228,18 @@ async def main():
                 parse_mode="Markdown", supports_streaming=True,
                 write_timeout=300, read_timeout=300, connect_timeout=60,
             )
-    print("¡Video enviado con éxito a tu aplicación móvil!")
+        print("¡Video enviado con éxito a tu aplicación móvil!")
 
+        quedan = len(historias_restantes)
+        if quedan < AVISO_HISTORIAS_RESTANTES:
+            await bot.send_message(
+                chat_id=TELEGRAM_CHAT_ID,
+                text=f"⚠️ Aviso: solo quedan {quedan} historias en historias.txt. Añade más para que el bot no se pare.",
+            )
+
+    # -----------------------------------------------------------
+    # 7. Guardar progreso
+    # -----------------------------------------------------------
     print("[7/7] Guardando el progreso del canal en la nube...")
     with open("contador.txt", "w") as f:
         f.write(str(int(n_episodio) + 1))
@@ -157,6 +247,9 @@ async def main():
         f.writelines(historias_restantes)
     print("Todo guardado correctamente. Sistema listo para mañana.")
 
+
+if __name__ == "__main__":
+    asyncio.run(main())
 
 if __name__ == "__main__":
     asyncio.run(main())
