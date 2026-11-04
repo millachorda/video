@@ -9,6 +9,9 @@ import numpy as np
 import edge_tts
 from PIL import Image, ImageDraw, ImageFont
 from telegram import Bot
+from google.oauth2.credentials import Credentials
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaFileUpload
 from moviepy.editor import VideoFileClip, AudioFileClip, ImageClip, CompositeVideoClip, concatenate_videoclips
 from moviepy.video.fx.all import crop, loop
 
@@ -18,6 +21,10 @@ from moviepy.video.fx.all import crop, loop
 PEXELS_API_KEY = os.environ.get("PEXELS_API_KEY")
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
+# YouTube es opcional: si faltan estos secrets, el vídeo solo se envía por Telegram
+YT_CLIENT_ID = os.environ.get("YT_CLIENT_ID")
+YT_CLIENT_SECRET = os.environ.get("YT_CLIENT_SECRET")
+YT_REFRESH_TOKEN = os.environ.get("YT_REFRESH_TOKEN")
 
 VOZ = "es-ES-AlvaroNeural"
 BUSQUEDA_PEXELS = "mystery dark"
@@ -83,6 +90,38 @@ def descargar(url, destino):
         with open(destino, "wb") as f:
             for trozo in r.iter_content(1024 * 1024):
                 f.write(trozo)
+
+
+def subir_a_youtube(archivo, titulo, descripcion):
+    """Sube el vídeo como Short y devuelve su enlace."""
+    credenciales = Credentials(
+        None, refresh_token=YT_REFRESH_TOKEN,
+        client_id=YT_CLIENT_ID, client_secret=YT_CLIENT_SECRET,
+        token_uri="https://oauth2.googleapis.com/token",
+        scopes=["https://www.googleapis.com/auth/youtube.upload"],
+    )
+    youtube = build("youtube", "v3", credentials=credenciales, cache_discovery=False)
+    cuerpo = {
+        "snippet": {
+            "title": titulo[:100],
+            "description": descripcion,
+            "tags": ["Shorts", "Misterio", "CasosReales", "HistoriasIA", "Enigma"],
+            "categoryId": "24",  # Entretenimiento
+        },
+        "status": {
+            "privacyStatus": "public",
+            "selfDeclaredMadeForKids": False,
+            "containsSyntheticMedia": True,  # Voz generada por IA
+        },
+    }
+    peticion = youtube.videos().insert(
+        part="snippet,status", body=cuerpo,
+        media_body=MediaFileUpload(archivo, mimetype="video/mp4", chunksize=-1, resumable=True),
+    )
+    respuesta = None
+    while respuesta is None:
+        _, respuesta = peticion.next_chunk()
+    return f"https://youtube.com/shorts/{respuesta['id']}"
 
 
 async def main():
@@ -209,15 +248,34 @@ async def main():
         sys.exit(1)
 
     # -----------------------------------------------------------
-    # 6. Envío a Telegram
+    # 6. Subida a YouTube Shorts y envío a Telegram
     # -----------------------------------------------------------
+    hashtags = f"#Shorts #TikTokViral #Misterio #CasosReales #HistoriasIA #ReelsMundo #Enigma #Episodio{n_episodio}"
+    estado_youtube = "📝 Descarga este archivo de video y súbelo a tus redes sociales.\n\n"
+    if YT_CLIENT_ID and YT_CLIENT_SECRET and YT_REFRESH_TOKEN:
+        print("[6/7] Subiendo el vídeo a YouTube Shorts...")
+        try:
+            enlace = subir_a_youtube(
+                archivo_final_mp4,
+                f"Misterios Sin Resolver - Episodio {n_episodio} #Shorts",
+                f"{historia_actual[:300]}...\n\n{hashtags}",
+            )
+            print(f"Subido a YouTube: {enlace}")
+            estado_youtube = (f"▶️ Ya está publicado en YouTube Shorts:\n{enlace}\n\n"
+                              f"📝 Descárgalo para subirlo a TikTok o Instagram.\n\n")
+        except Exception as e:
+            # No paramos: el vídeo sigue llegando por Telegram para subirlo a mano
+            print(f"AVISO: no se pudo subir a YouTube: {e}")
+            estado_youtube = ("⚠️ No se pudo subir a YouTube, súbelo tú a mano.\n"
+                              "📝 Descarga este archivo de video y súbelo a tus redes sociales.\n\n")
+
     print("[6/7] Conectando con los servidores de Telegram...")
     mensaje_texto = (
         f"🎬 ¡TU VIDEO ESTÁ LISTO!\n\n"
         f"📌 *Misterios Sin Resolver - Episodio {n_episodio}*\n"
-        f"📝 Descarga este archivo de video y súbelo a tus redes sociales.\n\n"
+        f"{estado_youtube}"
         f"🏷️ *Hashtags optimizados para pegar:*\n"
-        f"#Shorts #TikTokViral #Misterio #CasosReales #HistoriasIA #ReelsMundo #Enigma #Episodio{n_episodio}"
+        f"{hashtags}"
     )
 
     bot = Bot(token=TELEGRAM_TOKEN)
