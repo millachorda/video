@@ -25,6 +25,12 @@ TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
 YT_CLIENT_ID = os.environ.get("YT_CLIENT_ID")
 YT_CLIENT_SECRET = os.environ.get("YT_CLIENT_SECRET")
 YT_REFRESH_TOKEN = os.environ.get("YT_REFRESH_TOKEN")
+# TikTok también es opcional
+TIKTOK_CLIENT_KEY = os.environ.get("TIKTOK_CLIENT_KEY")
+TIKTOK_CLIENT_SECRET = os.environ.get("TIKTOK_CLIENT_SECRET")
+TIKTOK_REFRESH_TOKEN = os.environ.get("TIKTOK_REFRESH_TOKEN")
+# Hasta que TikTok audite la app solo se permite SELF_ONLY; después, PUBLIC_TO_EVERYONE
+TIKTOK_PRIVACY = os.environ.get("TIKTOK_PRIVACY") or "SELF_ONLY"
 
 VOZ = "es-ES-AlvaroNeural"
 BUSQUEDA_PEXELS = "mystery dark"
@@ -122,6 +128,40 @@ def subir_a_youtube(archivo, titulo, descripcion):
     while respuesta is None:
         _, respuesta = peticion.next_chunk()
     return f"https://youtube.com/shorts/{respuesta['id']}"
+
+
+def subir_a_tiktok(archivo, titulo):
+    """Publica el vídeo en TikTok con la Content Posting API y devuelve el publish_id."""
+    r = requests.post("https://open.tiktokapis.com/v2/oauth/token/", timeout=30, data={
+        "client_key": TIKTOK_CLIENT_KEY, "client_secret": TIKTOK_CLIENT_SECRET,
+        "grant_type": "refresh_token", "refresh_token": TIKTOK_REFRESH_TOKEN,
+    })
+    token = r.json()
+    if "access_token" not in token:
+        raise RuntimeError(f"no se pudo renovar el token de TikTok: {token}")
+
+    tamano = os.path.getsize(archivo)
+    r = requests.post(
+        "https://open.tiktokapis.com/v2/post/publish/video/init/", timeout=30,
+        headers={"Authorization": f"Bearer {token['access_token']}",
+                 "Content-Type": "application/json; charset=UTF-8"},
+        json={
+            "post_info": {"title": titulo[:2200], "privacy_level": TIKTOK_PRIVACY},
+            # Un solo trozo: los vídeos pesan menos de 50 MB
+            "source_info": {"source": "FILE_UPLOAD", "video_size": tamano,
+                            "chunk_size": tamano, "total_chunk_count": 1},
+        },
+    )
+    datos = r.json()
+    if datos.get("error", {}).get("code") != "ok":
+        raise RuntimeError(f"TikTok rechazó la publicación: {datos.get('error')}")
+
+    with open(archivo, "rb") as f:
+        requests.put(datos["data"]["upload_url"], data=f, timeout=300, headers={
+            "Content-Type": "video/mp4",
+            "Content-Range": f"bytes 0-{tamano - 1}/{tamano}",
+        }).raise_for_status()
+    return datos["data"]["publish_id"]
 
 
 async def main():
@@ -248,32 +288,42 @@ async def main():
         sys.exit(1)
 
     # -----------------------------------------------------------
-    # 6. Subida a YouTube Shorts y envío a Telegram
+    # 6. Publicación en YouTube Shorts y TikTok, y envío a Telegram
     # -----------------------------------------------------------
     hashtags = f"#Shorts #TikTokViral #Misterio #CasosReales #HistoriasIA #ReelsMundo #Enigma #Episodio{n_episodio}"
-    estado_youtube = "📝 Descarga este archivo de video y súbelo a tus redes sociales.\n\n"
+    titulo = f"Misterios Sin Resolver - Episodio {n_episodio}"
+    estados = []  # Una línea por red social para el mensaje de Telegram
+
+    # Si una subida falla no paramos: el vídeo sigue llegando por Telegram para subirlo a mano
     if YT_CLIENT_ID and YT_CLIENT_SECRET and YT_REFRESH_TOKEN:
         print("[6/7] Subiendo el vídeo a YouTube Shorts...")
         try:
-            enlace = subir_a_youtube(
-                archivo_final_mp4,
-                f"Misterios Sin Resolver - Episodio {n_episodio} #Shorts",
-                f"{historia_actual[:300]}...\n\n{hashtags}",
-            )
+            enlace = subir_a_youtube(archivo_final_mp4, f"{titulo} #Shorts",
+                                     f"{historia_actual[:300]}...\n\n{hashtags}")
             print(f"Subido a YouTube: {enlace}")
-            estado_youtube = (f"▶️ Ya está publicado en YouTube Shorts:\n{enlace}\n\n"
-                              f"📝 Descárgalo para subirlo a TikTok o Instagram.\n\n")
+            estados.append(f"▶️ YouTube Shorts: [publicado]({enlace})")
         except Exception as e:
-            # No paramos: el vídeo sigue llegando por Telegram para subirlo a mano
             print(f"AVISO: no se pudo subir a YouTube: {e}")
-            estado_youtube = ("⚠️ No se pudo subir a YouTube, súbelo tú a mano.\n"
-                              "📝 Descarga este archivo de video y súbelo a tus redes sociales.\n\n")
+            estados.append("⚠️ YouTube Shorts: falló, súbelo tú a mano")
+
+    if TIKTOK_CLIENT_KEY and TIKTOK_CLIENT_SECRET and TIKTOK_REFRESH_TOKEN:
+        print("[6/7] Subiendo el vídeo a TikTok...")
+        try:
+            subir_a_tiktok(archivo_final_mp4, f"{titulo} {hashtags.replace('#Shorts ', '')}")
+            print("Subido a TikTok.")
+            estados.append("🎵 TikTok: publicado")
+        except Exception as e:
+            print(f"AVISO: no se pudo subir a TikTok: {e}")
+            estados.append("⚠️ TikTok: falló, súbelo tú a mano")
+
+    if not estados:
+        estados.append("📝 Descarga este archivo de video y súbelo a tus redes sociales.")
 
     print("[6/7] Conectando con los servidores de Telegram...")
     mensaje_texto = (
         f"🎬 ¡TU VIDEO ESTÁ LISTO!\n\n"
-        f"📌 *Misterios Sin Resolver - Episodio {n_episodio}*\n"
-        f"{estado_youtube}"
+        f"📌 *{titulo}*\n"
+        + "\n".join(estados) + "\n\n"
         f"🏷️ *Hashtags optimizados para pegar:*\n"
         f"{hashtags}"
     )
