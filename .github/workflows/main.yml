@@ -2,8 +2,13 @@ name: Procesador Diario de Videos Cortos IA
 
 on:
   schedule:
-    - cron: '0 18 * * *'
+    - cron: '0 9,14,20 * * *'  # 10:00, 15:00 y 21:00 en España (horario de invierno)
   workflow_dispatch:
+
+# Nunca dos episodios a la vez: los dos leerían el mismo contador
+concurrency:
+  group: episodio
+  cancel-in-progress: false
 
 permissions:
   contents: write
