@@ -7,6 +7,7 @@ bot.py lo usa solo cuando quedan pocas historias. Para probarlo sin tocar ningú
 import json
 import os
 import sys
+import time
 
 import requests
 
@@ -29,14 +30,19 @@ Reglas:
 
 Devuelve solo un array JSON de strings, una historia por elemento."""
 
-    r = requests.post(
-        f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent",
-        headers={"x-goog-api-key": api_key}, timeout=120,
-        json={
-            "contents": [{"parts": [{"text": instrucciones}]}],
-            "generationConfig": {"responseMimeType": "application/json", "temperature": 0.9},
-        },
-    )
+    # El plan gratuito a veces responde 503/429 por saturación: reintenta con esperas crecientes
+    for intento in range(4):
+        r = requests.post(
+            f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent",
+            headers={"x-goog-api-key": api_key}, timeout=120,
+            json={
+                "contents": [{"parts": [{"text": instrucciones}]}],
+                "generationConfig": {"responseMimeType": "application/json", "temperature": 0.9},
+            },
+        )
+        if r.status_code not in (429, 500, 503) or intento == 3:
+            break
+        time.sleep(30 * (intento + 1))
     r.raise_for_status()
     texto = r.json()["candidates"][0]["content"]["parts"][0]["text"]
     historias = [" ".join(h.split()) for h in json.loads(texto) if isinstance(h, str)]
