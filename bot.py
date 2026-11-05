@@ -9,6 +9,7 @@ import numpy as np
 import edge_tts
 from PIL import Image, ImageDraw, ImageFont
 from telegram import Bot
+from historias_ia import generar_historias
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
@@ -31,6 +32,8 @@ TIKTOK_CLIENT_SECRET = os.environ.get("TIKTOK_CLIENT_SECRET")
 TIKTOK_REFRESH_TOKEN = os.environ.get("TIKTOK_REFRESH_TOKEN")
 # Hasta que TikTok audite la app solo se permite SELF_ONLY; después, PUBLIC_TO_EVERYONE
 TIKTOK_PRIVACY = os.environ.get("TIKTOK_PRIVACY") or "SELF_ONLY"
+# Gemini escribe historias nuevas cuando quedan pocas (opcional)
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
 VOZ = "es-ES-AlvaroNeural"
 BUSQUEDA_PEXELS = "mystery dark"
@@ -338,6 +341,22 @@ async def main():
             )
         print("¡Video enviado con éxito a tu aplicación móvil!")
 
+        if len(historias_restantes) < AVISO_HISTORIAS_RESTANTES and GEMINI_API_KEY:
+            print("Quedan pocas historias: pidiendo nuevas a Gemini...")
+            try:
+                ya_usadas = [l.strip() for l in open("casos_publicados.txt", encoding="utf-8")] \
+                    if os.path.exists("casos_publicados.txt") else []
+                en_cola = [h.strip()[:100] for h in historias_restantes]
+                nuevas = generar_historias(GEMINI_API_KEY, ya_usadas + [historia_actual[:100]] + en_cola)
+                historias_restantes += [h + "\n" for h in nuevas]
+                print(f"Gemini ha escrito {len(nuevas)} historias nuevas.")
+                await bot.send_message(
+                    chat_id=TELEGRAM_CHAT_ID,
+                    text=f"📝 Gemini ha escrito {len(nuevas)} historias nuevas. Échales un vistazo en historias.txt.",
+                )
+            except Exception as e:
+                print(f"AVISO: Gemini no pudo escribir historias: {e}")
+
         quedan = len(historias_restantes)
         if quedan < AVISO_HISTORIAS_RESTANTES:
             await bot.send_message(
@@ -353,6 +372,9 @@ async def main():
         f.write(str(int(n_episodio) + 1))
     with open("historias.txt", "w", encoding="utf-8") as f:
         f.writelines(historias_restantes)
+    # Registro de casos ya usados, para que Gemini no los repita
+    with open("casos_publicados.txt", "a", encoding="utf-8") as f:
+        f.write(historia_actual[:100] + "\n")
     print("Todo guardado correctamente. Sistema listo para mañana.")
 
 

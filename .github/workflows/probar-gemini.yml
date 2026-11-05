@@ -1,0 +1,18 @@
+name: Probar historias con Gemini
+
+# Se lanza a mano: pide una tanda a Gemini y enseña las primeras sin tocar historias.txt
+on:
+  workflow_dispatch:
+
+jobs:
+  probar:
+    runs-on: ubuntu-24.04
+    steps:
+    - uses: actions/checkout@v5
+    - uses: actions/setup-python@v6
+      with:
+        python-version: '3.10'
+    - run: pip install requests
+    - env:
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      run: python historias_ia.py
