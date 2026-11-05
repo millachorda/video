@@ -15,6 +15,7 @@ GEMINI_MODEL = os.environ.get("GEMINI_MODEL") or "gemini-flash-latest"
 # Si el principal está saturado, se prueban estos en orden
 MODELOS = [GEMINI_MODEL, "gemini-flash-lite-latest", "gemini-2.5-flash"]
 HISTORIAS_POR_TANDA = 15
+LIMITE_SEGUNDOS = 12 * 60
 
 
 def generar_historias(api_key, casos_a_evitar):
@@ -35,28 +36,41 @@ Devuelve solo un array JSON de strings, una historia por elemento."""
     # El plan gratuito a veces responde 503/429 por saturación: reintenta con esperas
     # crecientes y, si un modelo no responde, prueba con el siguiente
     errores = []
+    respuesta = None
+    # Límite total: el bot ya ha publicado el vídeo y aún tiene que guardar el progreso
+    limite = time.monotonic() + LIMITE_SEGUNDOS
     for modelo in MODELOS:
         for intento in range(3):
-            r = requests.post(
-                f"https://generativelanguage.googleapis.com/v1beta/models/{modelo}:generateContent",
-                headers={"x-goog-api-key": api_key}, timeout=120,
-                json={
-                    "contents": [{"parts": [{"text": instrucciones}]}],
-                    "generationConfig": {"responseMimeType": "application/json", "temperature": 0.9},
-                },
-            )
-            if r.ok:
-                print(f"Historias escritas con {modelo}.")
+            if time.monotonic() > limite:
+                errores.append("se agotó el tiempo total")
                 break
-            errores.append(f"{modelo}: {r.status_code} {r.text[:200]}")
-            if r.status_code not in (429, 500, 503):
-                break
+            try:
+                # Escribir 15 historias puede tardar varios minutos
+                r = requests.post(
+                    f"https://generativelanguage.googleapis.com/v1beta/models/{modelo}:generateContent",
+                    headers={"x-goog-api-key": api_key},
+                    timeout=max(30, min(360, limite - time.monotonic())),
+                    json={
+                        "contents": [{"parts": [{"text": instrucciones}]}],
+                        "generationConfig": {"responseMimeType": "application/json", "temperature": 0.9},
+                    },
+                )
+            except requests.RequestException as e:
+                errores.append(f"{modelo}: {e}")
+            else:
+                if r.ok:
+                    print(f"Historias escritas con {modelo}.")
+                    respuesta = r.json()
+                    break
+                errores.append(f"{modelo}: {r.status_code} {r.text[:200]}")
+                if r.status_code not in (429, 500, 503):
+                    break
             time.sleep(20 * (intento + 1))
-        if r.ok:
+        if respuesta:
             break
     else:
         raise RuntimeError("Gemini no respondió:\n" + "\n".join(errores))
-    texto = r.json()["candidates"][0]["content"]["parts"][0]["text"]
+    texto = respuesta["candidates"][0]["content"]["parts"][0]["text"]
     historias = [" ".join(h.split()) for h in json.loads(texto) if isinstance(h, str)]
     # Descarta las que se salgan mucho del tamaño: los subtítulos y la duración dependen de ello
     return [h for h in historias if 380 <= len(h) <= 700]
