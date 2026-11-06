@@ -5,6 +5,7 @@ etalonaje oscuro, subtítulos palabra a palabra, cabecera, barra de progreso y c
 import json
 import random
 import textwrap
+import time
 
 import numpy as np
 import edge_tts
@@ -157,6 +158,7 @@ def descargar_planos(pexels_key, busquedas, duracion_total):
             continue
         planos.append(plano)
         acumulado += plano.duration
+        print(f"  plano {len(planos)}: {plano.duration:.1f} s ({acumulado:.0f}/{duracion_total:.0f} s)")
     if not planos:
         raise RuntimeError("no se pudo preparar ningún plano.")
     return planos
@@ -284,9 +286,12 @@ def montar(historia, n_episodio, archivo_voz, palabras, planos, ruta_fuente, sal
              + subtitulos_palabra_a_palabra(palabras, ruta_fuente)
              + [cierre(ruta_fuente, voz.duration), barra_progreso(duracion)])
     video = CompositeVideoClip(capas, size=(ANCHO, ALTO)).set_duration(duracion)
+    print(f"  {len(capas)} capas, {duracion:.1f} s; renderizando...")
+    t0 = time.time()
     video.write_videofile(
         salida, fps=FPS, codec="libx264", audio_codec="aac", audio_bitrate="160k",
-        preset="faster", threads=2, logger=None,
+        preset="faster", threads=2, logger="bar",
         # Calidad constante alta, con tope para no pasar de los 50 MB de Telegram
         ffmpeg_params=["-crf", "20", "-maxrate", "8M", "-bufsize", "16M", "-pix_fmt", "yuv420p"],
     )
+    print(f"  render: {time.time() - t0:.0f} s")

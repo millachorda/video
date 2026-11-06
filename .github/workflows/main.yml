@@ -58,7 +58,7 @@ jobs:
         PRUEBA: ${{ inputs.prueba }}
         GH_TOKEN: ${{ github.token }}
         GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-      run: python bot.py
+      run: python -u bot.py
 
     - name: 6. Guardar cambios en el repositorio
       run: |
