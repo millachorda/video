@@ -4,6 +4,11 @@ on:
   schedule:
     - cron: '0 9,14,20 * * *'  # 10:00, 15:00 y 21:00 en España (horario de invierno)
   workflow_dispatch:
+    inputs:
+      prueba:
+        description: 'Solo generar el vídeo y mandarlo a Telegram (sin publicar ni gastar historia)'
+        type: boolean
+        default: false
 
 # Nunca dos episodios a la vez: los dos leerían el mismo contador
 concurrency:
@@ -49,7 +54,9 @@ jobs:
         TIKTOK_CLIENT_KEY: ${{ secrets.TIKTOK_CLIENT_KEY }}
         TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}
         TIKTOK_REFRESH_TOKEN: ${{ secrets.TIKTOK_REFRESH_TOKEN }}
-        TIKTOK_PRIVACY: ${{ vars.TIKTOK_PRIVACY }}
+        TIKTOK_MODO: ${{ vars.TIKTOK_MODO }}
+        PRUEBA: ${{ inputs.prueba }}
+        GH_TOKEN: ${{ github.token }}
         GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       run: python bot.py
 

@@ -35,7 +35,7 @@ verificador = secrets.token_urlsafe(48)
 estado = secrets.token_urlsafe(16)
 url = "https://www.tiktok.com/v2/auth/authorize/?" + urllib.parse.urlencode({
     "client_key": client_key,
-    "scope": "user.info.basic,video.publish",
+    "scope": "user.info.basic,video.publish,video.upload",
     "response_type": "code",
     "redirect_uri": REDIRECT_URI,
     "state": estado,
