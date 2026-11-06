@@ -155,22 +155,28 @@ async def main():
     print(f"Procesando: Caso Real - Episodio {n_episodio}")
 
     # -----------------------------------------------------------
-    # 2. Voz con Edge-TTS (con el momento exacto de cada palabra)
+    # 2. Plan del vídeo (Gemini): gancho hablado, búsquedas y hashtags del caso
+    # -----------------------------------------------------------
+    plan = montaje.planificar(historia_actual, GEMINI_API_KEY)
+    print(f"Gancho: {plan['gancho']}")
+
+    # -----------------------------------------------------------
+    # 2b. Voz con Edge-TTS (con el momento exacto de cada palabra)
     # -----------------------------------------------------------
     print("[2/7] Generando locución de voz con Microsoft Edge-TTS...")
     archivo_audio = "voz_episodio.mp3"
     # Con límite de tiempo: si el servicio de voz se cuelga, mejor fallar que agotar las 45 min
-    palabras = await asyncio.wait_for(montaje.generar_voz(historia_actual, archivo_audio), timeout=180)
+    palabras = await asyncio.wait_for(
+        montaje.generar_voz(f"{plan['gancho']} {historia_actual}", archivo_audio), timeout=180)
     print(f"Locución lista: {len(palabras)} palabras sincronizadas.")
 
     # -----------------------------------------------------------
     # 3. Planos de fondo de Pexels, buscados según la historia
     # -----------------------------------------------------------
     print("[3/7] Buscando videos de fondo verticales en Pexels...")
-    busquedas = montaje.busquedas_para(historia_actual, GEMINI_API_KEY)
-    print(f"Búsquedas: {', '.join(busquedas)}")
+    print(f"Búsquedas: {', '.join(plan['busquedas'])}")
     duracion_voz = palabras[-1][1] if palabras else 60
-    planos = montaje.descargar_planos(PEXELS_API_KEY, busquedas, duracion_voz + montaje.CIERRE)
+    planos = montaje.descargar_planos(PEXELS_API_KEY, plan["busquedas"], duracion_voz + montaje.CIERRE)
 
     # -----------------------------------------------------------
     # 4-5. Montaje y renderizado
@@ -178,7 +184,8 @@ async def main():
     print("[4/7] Iniciando motor de edición automatizada de video...")
     archivo_final_mp4 = f"Episodio_{n_episodio}.mp4"
     print("[5/7] Renderizando archivo final en formato vertical...")
-    montaje.montar(historia_actual, n_episodio, archivo_audio, palabras, planos, ruta_fuente, archivo_final_mp4)
+    montaje.montar(historia_actual, plan["gancho"], n_episodio, archivo_audio, palabras, planos,
+                   ruta_fuente, archivo_final_mp4)
 
     tamano_mb = os.path.getsize(archivo_final_mp4) / (1024 * 1024)
     print(f"Tamaño del vídeo: {tamano_mb:.1f} MB")
@@ -189,7 +196,10 @@ async def main():
     # -----------------------------------------------------------
     # 6. Publicación en YouTube Shorts y TikTok, y envío a Telegram
     # -----------------------------------------------------------
-    hashtags = f"#Shorts #TikTokViral #Misterio #CasosReales #HistoriasIA #ReelsMundo #Enigma #Episodio{n_episodio}"
+    # Hashtags: los del caso concreto (Gemini) primero, luego los fijos del nicho
+    del_caso = " ".join(plan["hashtags"])
+    hashtags = f"{del_caso} #misterio #casosreales #sinresolver #enigma #shorts".strip()
+    hashtags_tiktok = f"{del_caso} #misterio #casosreales #sinresolver #parati #fyp".strip()
     titulo = f"Misterios Sin Resolver - Episodio {n_episodio}"
     estados = []  # Una línea por red social para el mensaje de Telegram
 
@@ -208,7 +218,7 @@ async def main():
     if (TIKTOK_MODO == "aprobacion" and not PRUEBA) or ENCOLAR_TIKTOK:
         print("[6/7] Dejando el vídeo en la cola de TikTok...")
         try:
-            encolar_para_tiktok(archivo_final_mp4, n_episodio, titulo, f"{titulo} {hashtags.replace('#Shorts ', '')}")
+            encolar_para_tiktok(archivo_final_mp4, n_episodio, titulo, f"{titulo} {hashtags_tiktok}")
             estados.append("🎵 TikTok: pendiente de aprobar con el programa de publicación")
         except Exception as e:
             print(f"AVISO: no se pudo dejar en la cola de TikTok: {e}")
@@ -233,8 +243,8 @@ async def main():
         f"🎬 ¡TU VIDEO ESTÁ LISTO!\n\n"
         f"📌 *{titulo}*\n"
         + "\n".join(estados) + "\n\n"
-        f"🏷️ *Hashtags optimizados para pegar:*\n"
-        f"{hashtags}"
+        f"🏷️ *Texto para TikTok:*\n"
+        f"{titulo} {hashtags_tiktok}"
     )
 
     bot = Bot(token=TELEGRAM_TOKEN)

@@ -3,6 +3,7 @@ Montaje del vídeo vertical: voz con tiempos por palabra, planos cortos con movi
 etalonaje oscuro, subtítulos palabra a palabra, cabecera, barra de progreso y cierre.
 """
 import json
+import os
 import random
 import textwrap
 import time
@@ -12,15 +13,19 @@ import edge_tts
 import requests
 from PIL import Image, ImageDraw, ImageFont
 from moviepy.editor import (VideoClip, VideoFileClip, AudioFileClip, ImageClip,
-                            CompositeVideoClip, concatenate_videoclips)
+                            CompositeVideoClip, CompositeAudioClip, concatenate_videoclips)
+from moviepy.audio.AudioClip import AudioArrayClip
+
+import sonido
 from moviepy.video.fx.all import loop
 
 ANCHO, ALTO = 1080, 1920
 FPS = 30
-VOZ = "es-ES-AlvaroNeural"
+VOZ = os.environ.get("VOZ") or "es-ES-AlvaroNeural"
 VELOCIDAD = "+6%"          # Un pelín más rápido: en Shorts el ritmo retiene
 DURACION_PLANO = (2.8, 4.2)  # Cortes frecuentes para que no se haga monótono
-CIERRE = 2.0                 # Segundos de "sígueme" al final, ya sin voz
+CIERRE = 2.6                 # Segundos de cierre al final, ya sin voz
+GOLPE = 0.25                 # Duración del golpe de zoom al empezar cada plano
 AMARILLO = (255, 222, 0)
 ROJO = (220, 30, 45)
 
@@ -60,30 +65,50 @@ def tiempos_aproximados(texto, duracion):
     return salida
 
 
-def busquedas_para(historia, api_key):
-    """Pide a Gemini 5 búsquedas en inglés para Pexels que encajen con la historia."""
+GANCHOS_GENERICOS = [
+    "Este caso sigue sin resolverse.",
+    "Nadie ha conseguido explicar lo que pasó.",
+    "Lo que ocurrió aquí sigue siendo un misterio.",
+    "Este misterio aún no tiene respuesta.",
+]
+
+
+def planificar(historia, api_key):
+    """Pide a Gemini un gancho hablado, búsquedas para Pexels y hashtags del caso.
+    Si falla, devuelve un plan genérico para que el vídeo salga igual."""
+    plan = {"gancho": random.choice(GANCHOS_GENERICOS),
+            "busquedas": random.sample(BUSQUEDAS_GENERICAS, 5), "hashtags": []}
     if not api_key:
-        return random.sample(BUSQUEDAS_GENERICAS, 5)
+        return plan
     try:
         r = requests.post(
             "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent",
             headers={"x-goog-api-key": api_key}, timeout=60,
             json={
                 "contents": [{"parts": [{"text": (
-                    "Dame 5 búsquedas cortas en inglés (2-3 palabras) para encontrar vídeos de stock "
-                    "atmosféricos, sin personas reconocibles, que ilustren esta historia de misterio. "
-                    "Devuelve solo un array JSON de strings.\n\n" + historia)}]}],
+                    "Para un vídeo corto sobre esta historia de misterio real, devuelve un objeto JSON con:\n"
+                    '- "gancho": una frase en español de 6 a 10 palabras que se dirá ANTES de la historia para '
+                    "que nadie deslice el vídeo (intrigante, sin destripar el final, sin clickbait falso).\n"
+                    '- "busquedas": 5 búsquedas cortas en inglés (2-3 palabras) para vídeos de stock atmosféricos '
+                    "sin personas reconocibles que ilustren la historia.\n"
+                    '- "hashtags": 3 hashtags en español o con el nombre del caso, sin espacios, con #, '
+                    "específicos de esta historia (lugar, nombre del caso, tema).\n\n" + historia)}]}],
                 "generationConfig": {"responseMimeType": "application/json"},
             },
         )
         r.raise_for_status()
-        terminos = json.loads(r.json()["candidates"][0]["content"]["parts"][0]["text"])
-        terminos = [t for t in terminos if isinstance(t, str) and t.strip()][:5]
-        if terminos:
-            return terminos + random.sample(BUSQUEDAS_GENERICAS, 2)
+        datos = json.loads(r.json()["candidates"][0]["content"]["parts"][0]["text"])
+        if isinstance(datos.get("gancho"), str) and 3 <= len(datos["gancho"].split()) <= 14:
+            plan["gancho"] = datos["gancho"].strip()
+        busquedas = [b for b in datos.get("busquedas", []) if isinstance(b, str) and b.strip()][:5]
+        if busquedas:
+            plan["busquedas"] = busquedas + random.sample(BUSQUEDAS_GENERICAS, 2)
+        # Solo letras y números: un "_" rompería el formato del mensaje de Telegram
+        limpios = ["".join(c for c in h if c.isalnum()) for h in datos.get("hashtags", []) if isinstance(h, str)]
+        plan["hashtags"] = ["#" + h for h in limpios if h][:3]
     except Exception as e:
-        print(f"Aviso: Gemini no dio búsquedas, uso las genéricas: {e}")
-    return random.sample(BUSQUEDAS_GENERICAS, 5)
+        print(f"Aviso: Gemini no dio el plan del vídeo, uso uno genérico: {e}")
+    return plan
 
 
 def _descargar(url, destino):
@@ -112,7 +137,14 @@ def plano_con_movimiento(clip, duracion):
     def recortar(get_frame, t):
         p = min(t / duracion, 1)
         x, y = int(x0 + (x1 - x0) * p), int(y0 + (y1 - y0) * p)
-        return get_frame(t)[y:y + ALTO, x:x + ANCHO]
+        cuadro = get_frame(t)[y:y + ALTO, x:x + ANCHO]
+        if t < GOLPE:
+            # Golpe de zoom al entrar el plano: empieza un 8 % más cerca y se abre rápido
+            z = 1 + 0.08 * (1 - t / GOLPE) ** 2
+            w, h = int(ANCHO / z), int(ALTO / z)
+            ox, oy = (ANCHO - w) // 2, (ALTO - h) // 2
+            cuadro = np.array(Image.fromarray(cuadro[oy:oy + h, ox:ox + w]).resize((ANCHO, ALTO), Image.BILINEAR))
+        return cuadro
 
     plano = clip.fl(recortar, apply_to=[]).set_duration(duracion)
     plano.size = (ANCHO, ALTO)
@@ -198,11 +230,34 @@ def _imagen_texto(lineas, fuente, borde=8, interlineado=1.15):
     return np.array(img)
 
 
+PALABRAS_CLAVE = {"NADIE", "NUNCA", "JAMÁS", "MUERTE", "MUERTOS", "MURIERON", "ASESINADOS", "ASESINATO",
+                  "DESAPARECIÓ", "DESAPARECIERON", "DESAPARICIÓN", "SANGRE", "CADÁVER", "CUERPOS", "MISTERIO",
+                  "INEXPLICABLE", "SECRETO", "EXTRAÑO", "TERROR", "SEÑAL", "NINGUNA", "NINGÚN"}
+ROJO_TEXTO = (255, 70, 70)
+
+
+def _color_palabra(texto, activa):
+    if activa:
+        return AMARILLO
+    limpia = texto.strip("¿?¡!.,;:«»\"'")
+    if any(c.isdigit() for c in limpia) or limpia in PALABRAS_CLAVE:
+        return ROJO_TEXTO  # Fechas, cifras y palabras fuertes destacan aunque no se estén diciendo
+    return (255, 255, 255)
+
+
+def _rebote(t):
+    """Escala del texto al aparecer: crece un poco de más y se asienta (0,15 s)."""
+    if t >= 0.15:
+        return 1.0
+    return 0.75 + 0.35 * (t / 0.15) - 0.1 * (t / 0.15) ** 2
+
+
 def subtitulos_palabra_a_palabra(palabras, ruta_fuente, palabras_por_grupo=3):
     """Grupos de hasta 3 palabras en mayúsculas; la que se está diciendo, en amarillo."""
-    fuente = ImageFont.truetype(ruta_fuente, 96)
+    fuente = ImageFont.truetype(ruta_fuente, 100)
+    y_base = int(ALTO * 0.60)
     grupos, actual = [], []
-    for i, p in enumerate(palabras):
+    for p in palabras:
         # Corta el grupo si está lleno o si hay una pausa clara en la voz
         if actual and (len(actual) == palabras_por_grupo or p[0] - actual[-1][1] > 0.35):
             grupos.append(actual)
@@ -217,16 +272,29 @@ def subtitulos_palabra_a_palabra(palabras, ruta_fuente, palabras_por_grupo=3):
         textos = [p[2].upper() for p in grupo]
         for i, (inicio, _, _) in enumerate(grupo):
             fin = grupo[i + 1][0] if i + 1 < len(grupo) else fin_grupo
-            coloreadas = [(t, AMARILLO if j == i else (255, 255, 255)) for j, t in enumerate(textos)]
+            coloreadas = [(t, _color_palabra(t, j == i)) for j, t in enumerate(textos)]
             # Si no cabe en una línea, parte en dos
             lineas = [coloreadas]
             if len(" ".join(textos)) > 16 and len(textos) > 1:
                 corte = (len(textos) + 1) // 2
                 lineas = [coloreadas[:corte], coloreadas[corte:]]
             imagen = _imagen_texto(lineas, fuente)
-            clips.append(ImageClip(imagen).set_start(inicio).set_duration(max(fin - inicio, 0.05))
-                         .set_position(("center", int(ALTO * 0.60))))
+            clip = ImageClip(imagen).set_start(inicio).set_duration(max(fin - inicio, 0.05))
+            if i == 0:
+                # El grupo entra con un rebote, centrado sobre su posición final
+                alto = imagen.shape[0]
+                clip = (clip.resize(_rebote)
+                        .set_position(lambda t, a=alto: ("center", y_base + a * (1 - _rebote(t)) / 2)))
+            else:
+                clip = clip.set_position(("center", y_base))
+            clips.append(clip)
     return clips
+
+
+def destellos(cortes):
+    """Destello blanco muy breve en cada cambio de plano."""
+    blanco = np.full((ALTO, ANCHO, 3), 255, dtype=np.uint8)
+    return [ImageClip(blanco).set_start(c).set_duration(0.07).set_opacity(0.28) for c in cortes]
 
 
 def cabecera(n_episodio, ruta_fuente, duracion):
@@ -240,15 +308,16 @@ def cabecera(n_episodio, ruta_fuente, duracion):
     return ImageClip(np.array(img)).set_duration(duracion).set_position(("center", 170))
 
 
-def gancho(texto, ruta_fuente):
-    """Primera frase en grande durante los primeros segundos: lo que engancha al deslizar."""
-    primera = texto.split(". ")[0].strip().rstrip(".")
-    if len(primera) > 90:
-        primera = primera[:87].rsplit(" ", 1)[0] + "…"
-    fuente = ImageFont.truetype(ruta_fuente, 64)
-    lineas = [[(l, (255, 255, 255))] for l in textwrap.wrap(primera.upper(), width=24)]
-    return (ImageClip(_imagen_texto(lineas, fuente, borde=6)).set_start(0).set_duration(2.6)
-            .set_position(("center", 300)).crossfadeout(0.4))
+def gancho(texto, ruta_fuente, duracion):
+    """Frase gancho en grande arriba mientras se dice: lo que engancha al deslizar."""
+    fuente = ImageFont.truetype(ruta_fuente, 74)
+    lineas = [[(l, AMARILLO if n == 0 else (255, 255, 255))]
+              for n, l in enumerate(textwrap.wrap(texto.upper().rstrip("."), width=20))]
+    imagen = _imagen_texto(lineas, fuente, borde=7)
+    alto = imagen.shape[0]
+    return (ImageClip(imagen).set_start(0).set_duration(duracion)
+            .resize(_rebote).set_position(lambda t: ("center", 300 + alto * (1 - _rebote(t)) / 2))
+            .crossfadeout(0.3))
 
 
 def barra_progreso(duracion):
@@ -264,26 +333,39 @@ def barra_progreso(duracion):
 
 
 def cierre(ruta_fuente, inicio):
-    fuente = ImageFont.truetype(ruta_fuente, 86)
-    lineas = [[("SÍGUEME", AMARILLO)], [("PARA EL PRÓXIMO", (255, 255, 255))], [("CASO", (255, 255, 255))]]
+    fuente = ImageFont.truetype(ruta_fuente, 80)
+    lineas = [[("¿TÚ QUÉ CREES?", AMARILLO)], [("COMENTA TU TEORÍA", (255, 255, 255))],
+              [("Y SÍGUEME PARA MÁS", (255, 255, 255))]]
     return (ImageClip(_imagen_texto(lineas, fuente)).set_start(inicio).set_duration(CIERRE)
             .set_position(("center", "center")).crossfadein(0.3))
 
 
-def montar(historia, n_episodio, archivo_voz, palabras, planos, ruta_fuente, salida):
+def montar(historia, gancho_texto, n_episodio, archivo_voz, palabras, planos, ruta_fuente, salida):
     voz = AudioFileClip(archivo_voz)
     if not palabras:
-        palabras = tiempos_aproximados(historia, voz.duration)
+        palabras = tiempos_aproximados(f"{gancho_texto} {historia}", voz.duration)
     duracion = voz.duration + CIERRE
+    # El gancho son las primeras palabras de la locución: dura hasta que acaba la última de ellas
+    n_gancho = len(gancho_texto.split())
+    fin_gancho = palabras[min(n_gancho, len(palabras)) - 1][1] + 0.2 if palabras else 2.6
 
     fondo = concatenate_videoclips(planos, method="compose")
     fondo = fondo.subclip(0, min(duracion, fondo.duration))
     if fondo.duration < duracion:
         fondo = loop(fondo, duration=duracion)
-    fondo = etalonar(fondo).set_audio(voz)
+    cortes, t = [], 0.0
+    for plano in planos[:-1]:
+        t += plano.duration
+        if t < duracion - 0.3:
+            cortes.append(t)
 
-    capas = ([fondo, cabecera(n_episodio, ruta_fuente, duracion), gancho(historia, ruta_fuente)]
-             + subtitulos_palabra_a_palabra(palabras, ruta_fuente)
+    musica = AudioArrayClip(sonido.banda_sonora(duracion, palabras, cortes, fin_gancho, voz.duration),
+                            fps=sonido.FS)
+    fondo = etalonar(fondo).set_audio(CompositeAudioClip([musica, voz]).set_duration(duracion))
+
+    capas = ([fondo] + destellos(cortes)
+             + [cabecera(n_episodio, ruta_fuente, duracion), gancho(gancho_texto, ruta_fuente, fin_gancho)]
+             + subtitulos_palabra_a_palabra(palabras[n_gancho:], ruta_fuente)
              + [cierre(ruta_fuente, voz.duration), barra_progreso(duracion)])
     video = CompositeVideoClip(capas, size=(ANCHO, ALTO)).set_duration(duracion)
     print(f"  {len(capas)} capas, {duracion:.1f} s; renderizando...")

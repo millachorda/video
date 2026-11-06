@@ -46,7 +46,7 @@ jobs:
     - name: 4. Instalar librerías de Python
       run: |
         pip install --upgrade pip
-        pip install "moviepy==1.0.3" "pillow==9.5.0" edge-tts requests python-telegram-bot google-api-python-client google-auth
+        pip install "moviepy==1.0.3" "pillow==9.5.0" edge-tts requests python-telegram-bot google-api-python-client google-auth scipy
 
     - name: 5. Ejecutar el robot programador
       env:
@@ -64,6 +64,7 @@ jobs:
         ENCOLAR_TIKTOK: ${{ inputs.encolar_tiktok }}
         GH_TOKEN: ${{ github.token }}
         GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        VOZ: ${{ vars.VOZ }}
       run: python -u bot.py
 
     - name: 6. Guardar cambios en el repositorio
