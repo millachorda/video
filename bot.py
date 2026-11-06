@@ -157,7 +157,8 @@ async def main():
     # -----------------------------------------------------------
     print("[2/7] Generando locución de voz con Microsoft Edge-TTS...")
     archivo_audio = "voz_episodio.mp3"
-    palabras = await montaje.generar_voz(historia_actual, archivo_audio)
+    # Con límite de tiempo: si el servicio de voz se cuelga, mejor fallar que agotar las 45 min
+    palabras = await asyncio.wait_for(montaje.generar_voz(historia_actual, archivo_audio), timeout=180)
     print(f"Locución lista: {len(palabras)} palabras sincronizadas.")
 
     # -----------------------------------------------------------

@@ -290,7 +290,7 @@ def montar(historia, n_episodio, archivo_voz, palabras, planos, ruta_fuente, sal
     t0 = time.time()
     video.write_videofile(
         salida, fps=FPS, codec="libx264", audio_codec="aac", audio_bitrate="160k",
-        preset="faster", threads=2, logger="bar",
+        preset="faster", threads=2, logger=None,
         # Calidad constante alta, con tope para no pasar de los 50 MB de Telegram
         ffmpeg_params=["-crf", "20", "-maxrate", "8M", "-bufsize", "16M", "-pix_fmt", "yuv420p"],
     )
