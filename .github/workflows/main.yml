@@ -10,6 +10,10 @@ on:
         description: 'Solo generar el vídeo y mandarlo a Telegram (sin publicar ni gastar historia)'
         type: boolean
         default: false
+      encolar_tiktok:
+        description: 'Dejar el vídeo en la cola de publicar_tiktok.py'
+        type: boolean
+        default: false
 
 # Nunca dos episodios a la vez: los dos leerían el mismo contador
 concurrency:
@@ -57,6 +61,7 @@ jobs:
         TIKTOK_REFRESH_TOKEN: ${{ secrets.TIKTOK_REFRESH_TOKEN }}
         TIKTOK_MODO: ${{ vars.TIKTOK_MODO }}
         PRUEBA: ${{ inputs.prueba }}
+        ENCOLAR_TIKTOK: ${{ inputs.encolar_tiktok }}
         GH_TOKEN: ${{ github.token }}
         GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       run: python -u bot.py

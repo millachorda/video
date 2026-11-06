@@ -32,6 +32,8 @@ TIKTOK_MODO = os.environ.get("TIKTOK_MODO") or "borradores"
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 # Modo prueba: genera el vídeo y lo manda a Telegram, sin publicar ni gastar historia
 PRUEBA = os.environ.get("PRUEBA") == "true"
+# Deja el vídeo en la cola de publicar_tiktok.py aunque sea de prueba (para grabar la demo)
+ENCOLAR_TIKTOK = os.environ.get("ENCOLAR_TIKTOK") == "true"
 
 AVISO_HISTORIAS_RESTANTES = 15  # Avisa por Telegram cuando queden menos de estas
 
@@ -203,7 +205,7 @@ async def main():
             print(f"AVISO: no se pudo subir a YouTube: {e}")
             estados.append("⚠️ YouTube Shorts: falló, súbelo tú a mano")
 
-    if TIKTOK_MODO == "aprobacion" and not PRUEBA:
+    if (TIKTOK_MODO == "aprobacion" and not PRUEBA) or ENCOLAR_TIKTOK:
         print("[6/7] Dejando el vídeo en la cola de TikTok...")
         try:
             encolar_para_tiktok(archivo_final_mp4, n_episodio, titulo, f"{titulo} {hashtags.replace('#Shorts ', '')}")
