@@ -107,13 +107,13 @@ def banda_sonora(duracion, palabras, cortes, fin_gancho, inicio_cierre):
     for c in cortes:
         _poner(efectos, w, c - 0.2, 0.10)
     imp = impacto()
+    _poner(efectos, imp, 0.0, 0.5)
     _poner(efectos, imp, fin_gancho, 0.35)
     _poner(efectos, imp, inicio_cierre, 0.45)
 
     mezcla = musica + efectos
-    # Fundido de entrada y salida para que no empiece ni acabe de golpe
+    # Fundido solo de salida: al empezar tiene que sonar ya, sin entrada suave
     fundido = int(0.3 * FS)
-    mezcla[:fundido] *= np.linspace(0, 1, fundido)
     mezcla[-fundido:] *= np.linspace(1, 0, fundido)
     mezcla = np.clip(mezcla, -0.95, 0.95)
     # Un poco de anchura estéreo desfasando 12 ms un canal

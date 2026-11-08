@@ -172,8 +172,6 @@ async def main():
     # 2. Plan del vídeo (Gemini): gancho hablado, búsquedas y hashtags del caso
     # -----------------------------------------------------------
     plan = montaje.planificar(historia_actual, GEMINI_API_KEY)
-    if parte > 1:
-        plan["gancho"] = f"Parte {parte} de {total}. {plan['gancho']}"
     print(f"Gancho: {plan['gancho']}")
 
     # -----------------------------------------------------------

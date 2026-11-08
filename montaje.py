@@ -87,8 +87,12 @@ def planificar(historia, api_key):
             json={
                 "contents": [{"parts": [{"text": (
                     "Para un vídeo corto sobre esta historia de misterio real, devuelve un objeto JSON con:\n"
-                    '- "gancho": una frase en español de 6 a 10 palabras que se dirá ANTES de la historia para '
-                    "que nadie deslice el vídeo (intrigante, sin destripar el final, sin clickbait falso).\n"
+                    '- "gancho": una frase en español de 5 a 9 palabras que se dirá ANTES de la historia para '
+                    "que nadie deslice el vídeo en el primer segundo. Tiene que llevar un dato concreto y "
+                    "chocante del caso (una cifra, un objeto, un lugar, algo imposible), no frases genéricas como "
+                    "'este caso sigue sin resolverse'. Ejemplos de estilo: 'Desaparecieron 39 personas en pleno "
+                    "vuelo', 'Encontraron su diario escrito por otra persona'. Sin destripar el final y sin "
+                    "inventar nada que no esté en la historia.\n"
                     '- "busquedas": 5 búsquedas cortas en inglés (2-3 palabras) para vídeos de stock atmosféricos '
                     "sin personas reconocibles que ilustren la historia.\n"
                     '- "hashtags": 3 hashtags en español o con el nombre del caso, sin espacios, con #, '
@@ -317,15 +321,16 @@ def cabecera(parte, total, ruta_fuente, duracion):
 
 
 def gancho(texto, ruta_fuente, duracion):
-    """Frase gancho en grande arriba mientras se dice: lo que engancha al deslizar."""
-    fuente = ImageFont.truetype(ruta_fuente, 74)
+    """Frase gancho enorme en el centro mientras se dice: es lo que se ve al deslizar."""
+    fuente = ImageFont.truetype(ruta_fuente, 100)
     lineas = [[(l, AMARILLO if n == 0 else (255, 255, 255))]
-              for n, l in enumerate(textwrap.wrap(texto.upper().rstrip("."), width=20))]
-    imagen = _imagen_texto(lineas, fuente, borde=7)
+              for n, l in enumerate(textwrap.wrap(texto.upper().rstrip("."), width=15))]
+    imagen = _imagen_texto(lineas, fuente, borde=9)
     alto = imagen.shape[0]
+    y_centro = int(ALTO * 0.42) - alto // 2
     return (ImageClip(imagen).set_start(0).set_duration(duracion)
-            .resize(_rebote).set_position(lambda t: ("center", 420 + alto * (1 - _rebote(t)) / 2))
-            .crossfadeout(0.3))
+            .resize(_rebote).set_position(lambda t: ("center", y_centro + alto * (1 - _rebote(t)) / 2))
+            .crossfadeout(0.2))
 
 
 def barra_progreso(duracion):
@@ -357,6 +362,11 @@ def montar(historia, gancho_texto, parte, total, archivo_voz, palabras, planos, 
     voz = AudioFileClip(archivo_voz)
     if not palabras:
         palabras = tiempos_aproximados(f"{gancho_texto} {historia}", voz.duration)
+    # El primer segundo decide si la gente desliza: la voz tiene que sonar desde el fotograma 1
+    silencio = max(0.0, palabras[0][0] - 0.03)
+    if silencio > 0:
+        voz = voz.subclip(silencio)
+        palabras = [(a - silencio, b - silencio, w) for a, b, w in palabras]
     duracion = voz.duration + CIERRE
     # El gancho son las primeras palabras de la locución: dura hasta que acaba la última de ellas
     n_gancho = len(gancho_texto.split())
