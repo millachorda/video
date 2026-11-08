@@ -1,0 +1,29 @@
+name: Probar vídeo completo del caso
+
+# Se lanza a mano: monta el vídeo completo con las partes guardadas, sin publicarlo
+on:
+  workflow_dispatch:
+    inputs:
+      caso:
+        description: 'Título del caso (tal cual aparece en partes.json)'
+        required: true
+
+jobs:
+  probar:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+    - uses: actions/checkout@v5
+      with:
+        ref: main
+    - uses: actions/setup-python@v6
+      with:
+        python-version: '3.10'
+    - run: |
+        sudo apt-get update
+        sudo apt-get install -y ffmpeg fonts-liberation
+    - run: pip install edge-tts pillow google-api-python-client google-auth
+    - env:
+        PRUEBA: 'true'
+        GH_TOKEN: ${{ github.token }}
+      run: python -u recopilacion.py "${{ inputs.caso }}"

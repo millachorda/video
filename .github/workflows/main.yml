@@ -3,7 +3,8 @@ name: Procesador Diario de Videos Cortos IA
 on:
   schedule:
     # Minutos poco habituales: GitHub retrasa mucho las tareas programadas en punto
-    - cron: '37 8,13,19 * * *'  # ~9:37, 14:37 y 20:37 en España (horario de invierno)
+    # 5 al día = las 5 partes de un caso; tras la última se publica también el caso completo
+    - cron: '37 7,10,13,16,19 * * *'  # ~8:37, 11:37, 14:37, 17:37 y 20:37 en España (invierno)
   workflow_dispatch:
     inputs:
       prueba:
@@ -26,7 +27,7 @@ permissions:
 jobs:
   build-and-render:
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
     - name: 1. Descargar los archivos del repositorio
       uses: actions/checkout@v5
@@ -76,5 +77,5 @@ jobs:
       run: |
         git config --global user.name "GitHub Action Bot"
         git config --global user.email "actions@github.com"
-        git add contador.txt historias.txt casos_publicados.txt semana.json
+        git add contador.txt historias.txt casos_publicados.txt partes.json
         git diff --staged --quiet || (git commit -m "🤖 Bot: Episodio procesado con éxito" && git pull --rebase && git push)

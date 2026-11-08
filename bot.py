@@ -9,6 +9,7 @@ import requests
 from telegram import Bot
 from historias_ia import generar_historias, dividir_en_partes
 import montaje
+import recopilacion
 import youtube
 
 # ---------------------------------------------------------------
@@ -36,8 +37,6 @@ AVISO_HISTORIAS_RESTANTES = 15  # Avisa por Telegram cuando queden menos de esta
 # Cada caso se cuenta en una serie de vídeos que acaban en suspense: la gente sigue el canal
 # para ver la siguiente parte. Con 1 vuelve a ser un vídeo por caso.
 PARTES_POR_CASO = int(os.environ.get("PARTES_POR_CASO") or 5)
-# Vídeos guardados para la recopilación semanal (los recoge recopilacion.py)
-SEMANA = "semana.json"
 
 FUENTES_POSIBLES = [
     "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
@@ -60,18 +59,6 @@ def sin_markdown(texto):
 
 def es_parte_pendiente(linea):
     return linea.lstrip().startswith("{")
-
-
-def guardar_para_la_semana(archivo, n_episodio, titulo):
-    """Sube el vídeo a la release 'semana' y lo apunta en semana.json para la recopilación."""
-    if subprocess.run(["gh", "release", "view", "semana"], capture_output=True).returncode != 0:
-        subprocess.run(["gh", "release", "create", "semana", "--title", "Vídeos de la semana",
-                        "--notes", "Material para la recopilación semanal. Se vacía al publicarla."],
-                       check=True)
-    subprocess.run(["gh", "release", "upload", "semana", archivo, "--clobber"], check=True)
-    semana = json.load(open(SEMANA, encoding="utf-8")) if os.path.exists(SEMANA) else []
-    semana.append({"episodio": int(n_episodio), "titulo": titulo, "archivo": os.path.basename(archivo)})
-    json.dump(semana, open(SEMANA, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
 
 
 def subir_borrador_tiktok(archivo):
@@ -271,11 +258,12 @@ async def main():
 
     if PRUEBA:
         estados.append("🧪 Vídeo de prueba: no se ha publicado en ninguna red")
-    else:
+    elif total > 1:
+        # Las partes se guardan para montar el vídeo completo del caso al acabar la serie
         try:
-            guardar_para_la_semana(archivo_final_mp4, n_episodio, titulo)
+            recopilacion.guardar_parte(archivo_final_mp4, n_episodio, titulo_base, parte, total)
         except Exception as e:
-            print(f"AVISO: no se pudo guardar para la recopilación semanal: {e}")
+            print(f"AVISO: no se pudo guardar la parte para el vídeo completo: {e}")
     if not estados:
         estados.append("📝 Descarga este archivo de video y súbelo a tus redes sociales.")
 
@@ -297,6 +285,18 @@ async def main():
                 write_timeout=300, read_timeout=300, connect_timeout=60,
             )
         print("¡Video enviado con éxito a tu aplicación móvil!")
+
+        if total > 1 and parte == total and not PRUEBA:
+            print("Última parte: montando y publicando el caso completo...")
+            try:
+                enlace_completo = recopilacion.publicar_caso(titulo_base)
+                if enlace_completo:
+                    await bot.send_message(chat_id=TELEGRAM_CHAT_ID,
+                                           text=f"📺 Caso completo publicado en YouTube: {enlace_completo}")
+            except Exception as e:
+                print(f"AVISO: no se pudo publicar el caso completo: {e}")
+                await bot.send_message(chat_id=TELEGRAM_CHAT_ID,
+                                       text=f"⚠️ No se pudo publicar el caso completo: {e}")
 
         casos_en_cola = [h for h in historias_restantes if not es_parte_pendiente(h)]
         if len(casos_en_cola) < AVISO_HISTORIAS_RESTANTES and GEMINI_API_KEY and not PRUEBA:

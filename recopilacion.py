@@ -1,24 +1,26 @@
 """
-Recopilación semanal: junta los vídeos de la semana (los que bot.py guarda en la release
-'semana' y apunta en semana.json) en un vídeo largo horizontal para YouTube, con intro
-narrada, portadilla antes de cada vídeo, cierre, capítulos en la descripción y miniatura.
-Los vídeos largos convierten mucho mejor en suscriptores que los Shorts.
+Vídeo completo de cada caso: cuando se publica la última parte de una serie, junta todas las
+partes (que bot.py guarda en la release 'partes' y apunta en partes.json) en un vídeo largo
+horizontal para YouTube, con intro narrada, portadilla antes de cada parte, cierre, capítulos
+en la descripción y miniatura. Los vídeos largos convierten mucho mejor en suscriptores.
+
+Para probarlo sin publicar:  PRUEBA=true python recopilacion.py "<título del caso>"
 """
 import asyncio
 import json
 import os
 import subprocess
+import sys
 import textwrap
 
 import edge_tts
-import requests
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 import youtube
 
-SEMANA = "semana.json"
-CARPETA = "recopilacion"
-MINIMO = 3                      # Con menos vídeos no merece la pena
+PARTES = "partes.json"
+RELEASE = "partes"
+CARPETA = "completo"
 ANCHO, ALTO = 1920, 1080
 FUENTE = "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"
 VOZ = os.environ.get("VOZ") or "es-ES-AlvaroNeural"
@@ -38,6 +40,23 @@ def duracion(archivo):
     return float(salida.stdout.strip())
 
 
+def leer_partes():
+    return json.load(open(PARTES, encoding="utf-8")) if os.path.exists(PARTES) else []
+
+
+def guardar_parte(archivo, n_episodio, caso, parte, total):
+    """Sube el vídeo de una parte a la release 'partes' y lo apunta en partes.json."""
+    if subprocess.run(["gh", "release", "view", RELEASE], capture_output=True).returncode != 0:
+        subprocess.run(["gh", "release", "create", RELEASE, "--title", "Partes pendientes",
+                        "--notes", "Partes de las series en curso; se borran al publicar el vídeo completo."],
+                       check=True)
+    subprocess.run(["gh", "release", "upload", RELEASE, archivo, "--clobber"], check=True)
+    partes = leer_partes()
+    partes.append({"episodio": int(n_episodio), "caso": caso, "parte": parte, "total": total,
+                   "archivo": os.path.basename(archivo)})
+    json.dump(partes, open(PARTES, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+
+
 def fondo_oscuro():
     img = Image.new("RGB", (ANCHO, ALTO))
     d = ImageDraw.Draw(img)
@@ -48,16 +67,15 @@ def fondo_oscuro():
 
 
 def tarjeta(arriba, texto, archivo):
-    """Portadilla: una etiqueta en amarillo y el título en blanco, centrados."""
+    """Portadilla: una etiqueta en amarillo y el texto en blanco, centrados."""
     img = fondo_oscuro()
     d = ImageDraw.Draw(img)
     f_arriba, f_texto = ImageFont.truetype(FUENTE, 90), ImageFont.truetype(FUENTE, 72)
     lineas = textwrap.wrap(texto.upper(), width=30)[:4]
-    alto_total = 120 + 90 * len(lineas)
-    y = (ALTO - alto_total) // 2
+    y = (ALTO - (120 + 90 * len(lineas))) // 2
     for linea, fuente, color in [(arriba, f_arriba, AMARILLO)] + [(l, f_texto, (255, 255, 255)) for l in lineas]:
-        ancho = d.textlength(linea, font=fuente)
-        d.text(((ANCHO - ancho) / 2, y), linea, font=fuente, fill=color, stroke_width=5, stroke_fill=(0, 0, 0))
+        d.text(((ANCHO - d.textlength(linea, font=fuente)) / 2, y), linea, font=fuente, fill=color,
+               stroke_width=5, stroke_fill=(0, 0, 0))
         y += 120 if fuente is f_arriba else 90
     img.save(archivo)
 
@@ -78,30 +96,22 @@ def vertical_a_horizontal(entrada, salida):
            "-map", "[v]", "-map", "0:a", *CODIFICACION, salida)
 
 
-async def voz(texto, archivo):
-    await edge_tts.Communicate(texto, VOZ).save(archivo)
-
-
-def miniatura(video, n, salida):
-    """Fotograma del primer vídeo, ampliado y oscurecido, con el número de casos en grande."""
+def miniatura(video, caso, salida):
+    """Fotograma de la primera parte, ampliado y oscurecido, con el título del caso en grande."""
     ffmpeg("-ss", "3", "-i", video, "-frames:v", "1", f"{CARPETA}/fotograma.png")
     foto = Image.open(f"{CARPETA}/fotograma.png").convert("RGB")
     fondo = foto.resize((1280, int(1280 * foto.height / foto.width))).crop((0, 0, 1280, 720))
     fondo = fondo.filter(ImageFilter.GaussianBlur(6)).point(lambda v: int(v * 0.55))
-    fondo.paste(foto.resize((int(720 * foto.width / foto.height), 720)), (820, 0))
+    fondo.paste(foto.resize((int(720 * foto.width / foto.height), 720)), (860, 0))
     d = ImageDraw.Draw(fondo)
-    for texto, tam, color, y in [(f"{n}", 260, AMARILLO, 70), ("CASOS SIN", 110, (255, 255, 255), 340),
-                                 ("RESOLVER", 110, AMARILLO, 470)]:
-        d.text((60, y), texto, font=ImageFont.truetype(FUENTE, tam), fill=color, stroke_width=8,
-               stroke_fill=(0, 0, 0))
+    d.text((50, 50), "CASO COMPLETO", font=ImageFont.truetype(FUENTE, 70), fill=AMARILLO,
+           stroke_width=6, stroke_fill=(0, 0, 0))
+    y = 160
+    for linea in textwrap.wrap(caso.upper(), width=16)[:4]:
+        d.text((50, y), linea, font=ImageFont.truetype(FUENTE, 92), fill=(255, 255, 255),
+               stroke_width=7, stroke_fill=(0, 0, 0))
+        y += 110
     fondo.save(salida)
-
-
-def telegram(texto):
-    token, chat = os.environ.get("TELEGRAM_TOKEN"), os.environ.get("TELEGRAM_CHAT_ID")
-    if token and chat:
-        requests.post(f"https://api.telegram.org/bot{token}/sendMessage", timeout=30,
-                      data={"chat_id": chat, "text": texto})
 
 
 def tiempo(segundos):
@@ -109,16 +119,17 @@ def tiempo(segundos):
     return f"{s // 3600}:{s % 3600 // 60:02d}:{s % 60:02d}" if s >= 3600 else f"{s // 60}:{s % 60:02d}"
 
 
-def main():
-    videos = json.load(open(SEMANA, encoding="utf-8")) if os.path.exists(SEMANA) else []
-    if len(videos) < MINIMO:
-        print(f"Solo hay {len(videos)} vídeos esta semana; no se hace recopilación.")
-        return
+def publicar_caso(caso, publicar=True):
+    """Monta y (si publicar) sube el vídeo completo del caso; devuelve el enlace o None."""
+    partes = sorted([p for p in leer_partes() if p["caso"] == caso], key=lambda p: p["parte"])
+    if not partes:
+        print("No hay partes guardadas de este caso.")
+        return None
     os.makedirs(CARPETA, exist_ok=True)
-    subprocess.run(["gh", "release", "download", "semana", "-D", CARPETA, "-p", "*.mp4", "--clobber"], check=True)
-    videos = [v for v in videos if os.path.exists(f"{CARPETA}/{v['archivo']}")]
-    n = len(videos)
-    print(f"Montando la recopilación con {n} vídeos...")
+    for p in partes:
+        subprocess.run(["gh", "release", "download", RELEASE, "-p", p["archivo"], "-D", CARPETA, "--clobber"],
+                       check=True)
+    print(f"Montando el caso completo con {len(partes)} partes...")
 
     trozos, capitulos, t = [], [], 0.0
 
@@ -129,60 +140,56 @@ def main():
         trozos.append(archivo)
         t += duracion(archivo)
 
-    asyncio.run(voz(f"Estos son los {n} misterios sin resolver de esta semana. Quédate hasta el final, "
-                    "porque el último es el más inquietante.", f"{CARPETA}/intro.mp3"))
-    tarjeta("RECOPILACIÓN SEMANAL", f"{n} misterios sin resolver", f"{CARPETA}/intro.png")
+    asyncio.run(edge_tts.Communicate(
+        f"Este es el caso completo. {caso}. Todas las partes, de principio a fin.", VOZ,
+    ).save(f"{CARPETA}/intro.mp3"))
+    tarjeta("CASO COMPLETO", caso, f"{CARPETA}/intro.png")
     tarjeta_a_video(f"{CARPETA}/intro.png", duracion(f"{CARPETA}/intro.mp3") + 0.6,
                     f"{CARPETA}/00_intro.mp4", audio=f"{CARPETA}/intro.mp3")
     añadir(f"{CARPETA}/00_intro.mp4", "Introducción")
 
-    for i, v in enumerate(videos, start=1):
-        print(f"  {i}/{n}: {v['titulo']}")
-        tarjeta(f"CASO {i}", v["titulo"], f"{CARPETA}/t{i}.png")
-        tarjeta_a_video(f"{CARPETA}/t{i}.png", 2.5, f"{CARPETA}/{i:02d}a.mp4")
-        añadir(f"{CARPETA}/{i:02d}a.mp4", f"{i}. {v['titulo']}")
-        vertical_a_horizontal(f"{CARPETA}/{v['archivo']}", f"{CARPETA}/{i:02d}b.mp4")
-        añadir(f"{CARPETA}/{i:02d}b.mp4")
+    for p in partes:
+        k = p["parte"]
+        tarjeta(f"PARTE {k}", caso, f"{CARPETA}/t{k}.png")
+        tarjeta_a_video(f"{CARPETA}/t{k}.png", 2, f"{CARPETA}/{k:02d}a.mp4")
+        añadir(f"{CARPETA}/{k:02d}a.mp4", f"Parte {k}")
+        vertical_a_horizontal(f"{CARPETA}/{p['archivo']}", f"{CARPETA}/{k:02d}b.mp4")
+        añadir(f"{CARPETA}/{k:02d}b.mp4")
 
-    tarjeta("¿CUÁL TE HA DADO MÁS MIEDO?", "Cuéntamelo en los comentarios y suscríbete para no perderte "
-            "los casos de la próxima semana", f"{CARPETA}/fin.png")
+    tarjeta("¿TÚ QUÉ CREES?", "Comenta tu teoría y suscríbete: cada día un caso nuevo", f"{CARPETA}/fin.png")
     tarjeta_a_video(f"{CARPETA}/fin.png", 5, f"{CARPETA}/99_fin.mp4")
     añadir(f"{CARPETA}/99_fin.mp4", "Final")
 
     with open(f"{CARPETA}/lista.txt", "w") as f:
         f.writelines(f"file '{os.path.basename(x)}'\n" for x in trozos)
-    salida = f"{CARPETA}/recopilacion.mp4"
-    ffmpeg("-f", "concat", "-safe", "0", "-i", f"{CARPETA}/lista.txt", "-c", "copy", "-movflags", "+faststart", salida)
-    print(f"Recopilación lista: {tiempo(t)} de duración.")
+    salida = f"{CARPETA}/caso_completo.mp4"
+    ffmpeg("-f", "concat", "-safe", "0", "-i", f"{CARPETA}/lista.txt", "-c", "copy", "-movflags", "+faststart",
+           salida)
+    print(f"Caso completo listo: {tiempo(t)}, {os.path.getsize(salida) / 1e6:.0f} MB.")
+    if not publicar or not youtube.configurado():
+        return None
 
-    if os.environ.get("PRUEBA") == "true" or not youtube.configurado():
-        print("Modo prueba o sin YouTube: no se publica.")
-        return
-
-    titulo = f"{n} misterios reales que siguen sin resolver | Recopilación semanal"
-    descripcion = ("Los misterios sin resolver de esta semana, uno detrás de otro. "
-                   "¿Cuál te ha dado más miedo? Cuéntamelo en los comentarios.\n\n"
+    descripcion = (f"{caso}: el caso completo, con todas sus partes seguidas.\n"
+                   "¿Tú qué crees que pasó? Cuéntamelo en los comentarios y suscríbete: cada día un caso nuevo.\n\n"
                    + "\n".join(capitulos)
-                   + "\n\n#misterio #casosreales #sinresolver #enigma #recopilacion")
-    video_id, enlace = youtube.subir(salida, titulo, descripcion,
-                                     ["Misterio", "CasosReales", "SinResolver", "Enigma", "Recopilación"],
+                   + "\n\n#misterio #casosreales #sinresolver #enigma #casocompleto")
+    video_id, enlace = youtube.subir(salida, f"{caso} | El caso completo", descripcion,
+                                     ["Misterio", "CasosReales", "SinResolver", "Enigma", "CasoCompleto"],
                                      short=False)
-    print(f"Publicada: {enlace}")
+    print(f"Caso completo publicado: {enlace}")
     try:
-        miniatura(f"{CARPETA}/{videos[0]['archivo']}", n, f"{CARPETA}/miniatura.png")
+        miniatura(f"{CARPETA}/{partes[0]['archivo']}", caso, f"{CARPETA}/miniatura.png")
         youtube.poner_miniatura(video_id, f"{CARPETA}/miniatura.png")
     except Exception as e:
         print(f"AVISO: no se pudo poner la miniatura (hace falta verificar el canal por teléfono): {e}")
 
-    # Semana nueva: se vacía la lista y se borran los vídeos guardados
-    json.dump([], open(SEMANA, "w", encoding="utf-8"))
-    subprocess.run(["gh", "release", "delete", "semana", "--yes", "--cleanup-tag"], check=False)
-    telegram(f"📺 Recopilación semanal publicada ({n} vídeos, {tiempo(t)}): {enlace}")
+    # Las partes ya no hacen falta: fuera de la lista y de la release
+    json.dump([p for p in leer_partes() if p["caso"] != caso], open(PARTES, "w", encoding="utf-8"),
+              ensure_ascii=False, indent=1)
+    for p in partes:
+        subprocess.run(["gh", "release", "delete-asset", RELEASE, p["archivo"], "--yes"], check=False)
+    return enlace
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    except Exception as e:
-        telegram(f"⚠️ La recopilación semanal ha fallado: {e}")
-        raise
+    publicar_caso(sys.argv[1], publicar=os.environ.get("PRUEBA") != "true")
