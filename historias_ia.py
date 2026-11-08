@@ -18,7 +18,7 @@ HISTORIAS_POR_TANDA = 15
 LIMITE_SEGUNDOS = 12 * 60
 
 
-def _pedir(api_key, instrucciones, limite_segundos, temperatura):
+def _pedir(api_key, instrucciones, limite_segundos, temperatura, espera_maxima=360, intentos=3):
     """Llama a Gemini pidiendo JSON y devuelve el texto de la respuesta."""
     # El plan gratuito a veces responde 503/429 por saturación: reintenta con esperas
     # crecientes y, si un modelo no responde, prueba con el siguiente
@@ -27,7 +27,7 @@ def _pedir(api_key, instrucciones, limite_segundos, temperatura):
     # Límite total: el bot ya ha publicado el vídeo y aún tiene que guardar el progreso
     limite = time.monotonic() + limite_segundos
     for modelo in MODELOS:
-        for intento in range(3):
+        for intento in range(intentos):
             if time.monotonic() > limite:
                 errores.append("se agotó el tiempo total")
                 break
@@ -36,7 +36,7 @@ def _pedir(api_key, instrucciones, limite_segundos, temperatura):
                 r = requests.post(
                     f"https://generativelanguage.googleapis.com/v1beta/models/{modelo}:generateContent",
                     headers={"x-goog-api-key": api_key},
-                    timeout=max(30, min(360, limite - time.monotonic())),
+                    timeout=max(30, min(espera_maxima, limite - time.monotonic())),
                     json={
                         "contents": [{"parts": [{"text": instrucciones}]}],
                         "generationConfig": {"responseMimeType": "application/json", "temperature": temperatura},
@@ -79,7 +79,8 @@ Caso:
 {historia}
 
 Devuelve solo un array JSON con {n} strings, una parte por elemento, en orden."""
-    partes = [" ".join(str(p).split()) for p in json.loads(_pedir(api_key, instrucciones, 5 * 60, 0.7))]
+    partes = [" ".join(str(p).split()) for p in json.loads(_pedir(api_key, instrucciones, 5 * 60, 0.7,
+                                                                         espera_maxima=100, intentos=2))]
     if len(partes) != n or not all(300 <= len(p) <= 650 for p in partes):
         raise ValueError(f"la serie no salió bien: {len(partes)} partes, tamaños {[len(p) for p in partes]}")
     return partes
