@@ -103,9 +103,10 @@ def subir_borrador_tiktok(archivo):
             "Content-Range": f"bytes 0-{tamano - 1}/{tamano}",
         }).raise_for_status()
 
-    # Que el archivo llegue no basta: TikTok lo procesa después y puede rechazarlo
+    # Que el archivo llegue no basta: TikTok lo procesa después y puede rechazarlo. Ojo: a menudo
+    # se queda en PROCESSING_UPLOAD aunque el borrador llegue bien, así que solo cuenta un FAILED
     publish_id = datos["data"]["publish_id"]
-    for _ in range(30):
+    for _ in range(10):
         time.sleep(6)
         estado = requests.post(
             "https://open.tiktokapis.com/v2/post/publish/status/fetch/", timeout=30,
@@ -113,13 +114,13 @@ def subir_borrador_tiktok(archivo):
                      "Content-Type": "application/json; charset=UTF-8"},
             json={"publish_id": publish_id},
         ).json()
-        print(f"  TikTok: {estado}")
         situacion = estado.get("data", {}).get("status")
-        if situacion == "SEND_TO_USER_INBOX":
-            return publish_id
         if situacion == "FAILED" or estado.get("error", {}).get("code") not in (None, "ok"):
             raise RuntimeError(f"TikTok no aceptó el borrador: {estado}")
-    raise RuntimeError("TikTok no terminó de procesar el borrador en 3 minutos")
+        if situacion == "SEND_TO_USER_INBOX":
+            break
+    print(f"  Estado del borrador en TikTok: {situacion}")
+    return publish_id
 
 
 def encolar_para_tiktok(archivo, n_episodio, titulo, texto):
