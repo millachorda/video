@@ -5,5 +5,12 @@
   "parte": 1,
   "total": 5,
   "archivo": "Episodio_15.mp4"
+ },
+ {
+  "episodio": 16,
+  "caso": "Su última llamada de radio sigue helando la sangre",
+  "parte": 2,
+  "total": 5,
+  "archivo": "Episodio_16.mp4"
  }
 ]
