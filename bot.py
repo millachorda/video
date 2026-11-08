@@ -1,15 +1,14 @@
 import os
 import sys
+import json
 import asyncio
 import subprocess
 
 import requests
 from telegram import Bot
-from historias_ia import generar_historias
-from google.oauth2.credentials import Credentials
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaFileUpload
+from historias_ia import generar_historias, dividir_en_partes
 import montaje
+import youtube
 
 # ---------------------------------------------------------------
 # Configuración
@@ -17,10 +16,7 @@ import montaje
 PEXELS_API_KEY = os.environ.get("PEXELS_API_KEY")
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
-# YouTube es opcional: si faltan estos secrets, el vídeo solo se envía por Telegram
-YT_CLIENT_ID = os.environ.get("YT_CLIENT_ID")
-YT_CLIENT_SECRET = os.environ.get("YT_CLIENT_SECRET")
-YT_REFRESH_TOKEN = os.environ.get("YT_REFRESH_TOKEN")
+# YouTube es opcional (youtube.py lee sus secrets): si faltan, el vídeo solo va a Telegram
 # TikTok también es opcional
 TIKTOK_CLIENT_KEY = os.environ.get("TIKTOK_CLIENT_KEY")
 TIKTOK_CLIENT_SECRET = os.environ.get("TIKTOK_CLIENT_SECRET")
@@ -36,6 +32,11 @@ PRUEBA = os.environ.get("PRUEBA") == "true"
 ENCOLAR_TIKTOK = os.environ.get("ENCOLAR_TIKTOK") == "true"
 
 AVISO_HISTORIAS_RESTANTES = 15  # Avisa por Telegram cuando queden menos de estas
+# Cada caso se cuenta en una serie de vídeos que acaban en suspense: la gente sigue el canal
+# para ver la siguiente parte. Con 1 vuelve a ser un vídeo por caso.
+PARTES_POR_CASO = int(os.environ.get("PARTES_POR_CASO") or 5)
+# Vídeos guardados para la recopilación semanal (los recoge recopilacion.py)
+SEMANA = "semana.json"
 
 FUENTES_POSIBLES = [
     "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
@@ -51,36 +52,25 @@ def elegir_fuente():
     sys.exit(1)
 
 
-def subir_a_youtube(archivo, titulo, descripcion):
-    """Sube el vídeo como Short y devuelve su enlace."""
-    credenciales = Credentials(
-        None, refresh_token=YT_REFRESH_TOKEN,
-        client_id=YT_CLIENT_ID, client_secret=YT_CLIENT_SECRET,
-        token_uri="https://oauth2.googleapis.com/token",
-        scopes=["https://www.googleapis.com/auth/youtube.upload"],
-    )
-    youtube = build("youtube", "v3", credentials=credenciales, cache_discovery=False)
-    cuerpo = {
-        "snippet": {
-            "title": titulo[:100],
-            "description": descripcion,
-            "tags": ["Shorts", "Misterio", "CasosReales", "HistoriasIA", "Enigma"],
-            "categoryId": "24",  # Entretenimiento
-        },
-        "status": {
-            "privacyStatus": "public",
-            "selfDeclaredMadeForKids": False,
-            "containsSyntheticMedia": True,  # Voz generada por IA
-        },
-    }
-    peticion = youtube.videos().insert(
-        part="snippet,status", body=cuerpo,
-        media_body=MediaFileUpload(archivo, mimetype="video/mp4", chunksize=-1, resumable=True),
-    )
-    respuesta = None
-    while respuesta is None:
-        _, respuesta = peticion.next_chunk()
-    return f"https://youtube.com/shorts/{respuesta['id']}"
+def sin_markdown(texto):
+    """Quita los caracteres que rompen el formato Markdown de Telegram."""
+    return "".join(c for c in texto if c not in "*_`[]")
+
+
+def es_parte_pendiente(linea):
+    return linea.lstrip().startswith("{")
+
+
+def guardar_para_la_semana(archivo, n_episodio, titulo):
+    """Sube el vídeo a la release 'semana' y lo apunta en semana.json para la recopilación."""
+    if subprocess.run(["gh", "release", "view", "semana"], capture_output=True).returncode != 0:
+        subprocess.run(["gh", "release", "create", "semana", "--title", "Vídeos de la semana",
+                        "--notes", "Material para la recopilación semanal. Se vacía al publicarla."],
+                       check=True)
+    subprocess.run(["gh", "release", "upload", "semana", archivo, "--clobber"], check=True)
+    semana = json.load(open(SEMANA, encoding="utf-8")) if os.path.exists(SEMANA) else []
+    semana.append({"episodio": int(n_episodio), "titulo": titulo, "archivo": os.path.basename(archivo)})
+    json.dump(semana, open(SEMANA, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
 
 
 def subir_borrador_tiktok(archivo):
@@ -150,14 +140,34 @@ async def main():
         print("ERROR: historias.txt solo contiene líneas vacías.")
         sys.exit(1)
 
-    historia_actual = lineas[0].strip()
     historias_restantes = lineas[1:]
-    print(f"Procesando: Caso Real - Episodio {n_episodio}")
+    if es_parte_pendiente(lineas[0]):
+        # Siguiente parte de una serie ya empezada
+        serie = json.loads(lineas[0])
+        historia_actual, parte, total = serie["texto"], serie["parte"], serie["total"]
+        titulo_base, enlace_anterior, caso_original = serie.get("titulo"), serie.get("anterior"), serie["caso"]
+    else:
+        historia_actual, parte, total = lineas[0].strip(), 1, 1
+        titulo_base, enlace_anterior, caso_original = None, None, lineas[0].strip()
+        if PARTES_POR_CASO > 1 and GEMINI_API_KEY:
+            try:
+                partes = dividir_en_partes(GEMINI_API_KEY, caso_original, PARTES_POR_CASO)
+                historia_actual, total = partes[0], len(partes)
+                # Las demás partes quedan delante en la cola; el título y enlace se rellenan al publicar
+                historias_restantes = [json.dumps({"parte": k, "total": total, "texto": t, "caso": caso_original},
+                                                  ensure_ascii=False) + "\n"
+                                       for k, t in enumerate(partes[1:], start=2)] + historias_restantes
+                print(f"Caso dividido en {total} partes.")
+            except Exception as e:
+                print(f"AVISO: no se pudo dividir el caso, va en un solo vídeo: {e}")
+    print(f"Procesando: episodio {n_episodio}, parte {parte}/{total}")
 
     # -----------------------------------------------------------
     # 2. Plan del vídeo (Gemini): gancho hablado, búsquedas y hashtags del caso
     # -----------------------------------------------------------
     plan = montaje.planificar(historia_actual, GEMINI_API_KEY)
+    if parte > 1:
+        plan["gancho"] = f"Parte {parte} de {total}. {plan['gancho']}"
     print(f"Gancho: {plan['gancho']}")
 
     # -----------------------------------------------------------
@@ -184,7 +194,7 @@ async def main():
     print("[4/7] Iniciando motor de edición automatizada de video...")
     archivo_final_mp4 = f"Episodio_{n_episodio}.mp4"
     print("[5/7] Renderizando archivo final en formato vertical...")
-    montaje.montar(historia_actual, plan["gancho"], n_episodio, archivo_audio, palabras, planos,
+    montaje.montar(historia_actual, plan["gancho"], parte, total, archivo_audio, palabras, planos,
                    ruta_fuente, archivo_final_mp4)
 
     tamano_mb = os.path.getsize(archivo_final_mp4) / (1024 * 1024)
@@ -200,15 +210,22 @@ async def main():
     del_caso = " ".join(plan["hashtags"])
     hashtags = f"{del_caso} #misterio #casosreales #sinresolver #enigma #shorts".strip()
     hashtags_tiktok = f"{del_caso} #misterio #casosreales #sinresolver #parati #fyp".strip()
-    titulo = f"Misterios Sin Resolver - Episodio {n_episodio}"
+    # Título: el gancho del caso (el de la parte 1 para toda la serie), que despierta curiosidad
+    if not titulo_base:
+        titulo_base = sin_markdown(plan["gancho"]).rstrip(".")
+    titulo = f"{titulo_base} (Parte {parte}/{total})" if total > 1 else titulo_base
     estados = []  # Una línea por red social para el mensaje de Telegram
+    enlace = None
 
     # Si una subida falla no paramos: el vídeo sigue llegando por Telegram para subirlo a mano
-    if YT_CLIENT_ID and YT_CLIENT_SECRET and YT_REFRESH_TOKEN and not PRUEBA:
+    if youtube.configurado() and not PRUEBA:
         print("[6/7] Subiendo el vídeo a YouTube Shorts...")
         try:
-            enlace = subir_a_youtube(archivo_final_mp4, f"{titulo} #Shorts",
-                                     f"{historia_actual[:300]}...\n\n{hashtags}")
+            descripcion = f"{historia_actual[:300]}...\n\n"
+            if enlace_anterior:
+                descripcion += f"⏪ Parte anterior: {enlace_anterior}\n\n"
+            _, enlace = youtube.subir(archivo_final_mp4, f"{titulo[:91]} #Shorts", descripcion + hashtags,
+                                     ["Shorts", "Misterio", "CasosReales", "SinResolver", "Enigma"])
             print(f"Subido a YouTube: {enlace}")
             estados.append(f"▶️ YouTube Shorts: [publicado]({enlace})")
         except Exception as e:
@@ -235,7 +252,12 @@ async def main():
 
     if PRUEBA:
         estados.append("🧪 Vídeo de prueba: no se ha publicado en ninguna red")
-    elif not estados:
+    else:
+        try:
+            guardar_para_la_semana(archivo_final_mp4, n_episodio, titulo)
+        except Exception as e:
+            print(f"AVISO: no se pudo guardar para la recopilación semanal: {e}")
+    if not estados:
         estados.append("📝 Descarga este archivo de video y súbelo a tus redes sociales.")
 
     print("[6/7] Conectando con los servidores de Telegram...")
@@ -257,14 +279,16 @@ async def main():
             )
         print("¡Video enviado con éxito a tu aplicación móvil!")
 
-        if len(historias_restantes) < AVISO_HISTORIAS_RESTANTES and GEMINI_API_KEY and not PRUEBA:
+        casos_en_cola = [h for h in historias_restantes if not es_parte_pendiente(h)]
+        if len(casos_en_cola) < AVISO_HISTORIAS_RESTANTES and GEMINI_API_KEY and not PRUEBA:
             print("Quedan pocas historias: pidiendo nuevas a Gemini...")
             try:
                 ya_usadas = [l.strip() for l in open("casos_publicados.txt", encoding="utf-8")] \
                     if os.path.exists("casos_publicados.txt") else []
-                en_cola = [h.strip()[:100] for h in historias_restantes]
-                nuevas = generar_historias(GEMINI_API_KEY, ya_usadas + [historia_actual[:100]] + en_cola)
+                en_cola = [h.strip()[:100] for h in casos_en_cola]
+                nuevas = generar_historias(GEMINI_API_KEY, ya_usadas + [caso_original[:100]] + en_cola)
                 historias_restantes += [h + "\n" for h in nuevas]
+                casos_en_cola += nuevas
                 print(f"Gemini ha escrito {len(nuevas)} historias nuevas.")
                 await bot.send_message(
                     chat_id=TELEGRAM_CHAT_ID,
@@ -273,7 +297,7 @@ async def main():
             except Exception as e:
                 print(f"AVISO: Gemini no pudo escribir historias: {e}")
 
-        quedan = len(historias_restantes)
+        quedan = len(casos_en_cola)
         if quedan < AVISO_HISTORIAS_RESTANTES:
             await bot.send_message(
                 chat_id=TELEGRAM_CHAT_ID,
@@ -289,11 +313,17 @@ async def main():
     print("[7/7] Guardando el progreso del canal en la nube...")
     with open("contador.txt", "w") as f:
         f.write(str(int(n_episodio) + 1))
+    if historias_restantes and es_parte_pendiente(historias_restantes[0]):
+        siguiente = json.loads(historias_restantes[0])
+        if siguiente.get("caso") == caso_original:
+            siguiente.update(titulo=titulo_base, anterior=enlace)
+            historias_restantes[0] = json.dumps(siguiente, ensure_ascii=False) + "\n"
     with open("historias.txt", "w", encoding="utf-8") as f:
         f.writelines(historias_restantes)
     # Registro de casos ya usados, para que Gemini no los repita
-    with open("casos_publicados.txt", "a", encoding="utf-8") as f:
-        f.write(historia_actual[:100] + "\n")
+    if parte == 1:
+        with open("casos_publicados.txt", "a", encoding="utf-8") as f:
+            f.write(caso_original[:100] + "\n")
     print("Todo guardado correctamente. Sistema listo para mañana.")
 
 

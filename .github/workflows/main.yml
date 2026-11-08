@@ -69,11 +69,12 @@ jobs:
         GH_TOKEN: ${{ github.token }}
         GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         VOZ: ${{ vars.VOZ }}
+        PARTES_POR_CASO: ${{ vars.PARTES_POR_CASO }}
       run: python -u bot.py
 
     - name: 6. Guardar cambios en el repositorio
       run: |
         git config --global user.name "GitHub Action Bot"
         git config --global user.email "actions@github.com"
-        git add contador.txt historias.txt casos_publicados.txt
+        git add contador.txt historias.txt casos_publicados.txt semana.json
         git diff --staged --quiet || (git commit -m "🤖 Bot: Episodio procesado con éxito" && git pull --rebase && git push)

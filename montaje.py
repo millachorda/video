@@ -22,9 +22,9 @@ from moviepy.video.fx.all import loop
 ANCHO, ALTO = 1080, 1920
 FPS = 30
 VOZ = os.environ.get("VOZ") or "es-ES-AlvaroNeural"
-VELOCIDAD = "+6%"          # Un pelín más rápido: en Shorts el ritmo retiene
+VELOCIDAD = "+10%"         # Más rápido que la voz normal: en Shorts el ritmo retiene
 DURACION_PLANO = (2.8, 4.2)  # Cortes frecuentes para que no se haga monótono
-CIERRE = 2.6                 # Segundos de cierre al final, ya sin voz
+CIERRE = 1.8                 # Segundos de cierre al final, ya sin voz (corto: el silencio hace deslizar)
 GOLPE = 0.25                 # Duración del golpe de zoom al empezar cada plano
 AMARILLO = (255, 222, 0)
 ROJO = (220, 30, 45)
@@ -297,15 +297,23 @@ def destellos(cortes):
     return [ImageClip(blanco).set_start(c).set_duration(0.07).set_opacity(0.28) for c in cortes]
 
 
-def cabecera(n_episodio, ruta_fuente, duracion):
-    """Etiqueta fija arriba: 'CASO SIN RESOLVER · Nº X' en una franja roja."""
-    fuente = ImageFont.truetype(ruta_fuente, 52)
-    texto = f"CASO SIN RESOLVER · Nº {n_episodio}"
+def _etiqueta(texto, fuente, fondo, color, alto):
     d = ImageDraw.Draw(Image.new("RGB", (1, 1)))
-    ancho = int(d.textlength(texto, font=fuente)) + 60
-    img = Image.new("RGBA", (ancho, 90), ROJO + (235,))
-    ImageDraw.Draw(img).text((30, 14), texto, font=fuente, fill=(255, 255, 255))
-    return ImageClip(np.array(img)).set_duration(duracion).set_position(("center", 170))
+    img = Image.new("RGBA", (int(d.textlength(texto, font=fuente)) + 60, alto), fondo)
+    ImageDraw.Draw(img).text((30, (alto - fuente.size) // 2 - 4), texto, font=fuente, fill=color)
+    return np.array(img)
+
+
+def cabecera(parte, total, ruta_fuente, duracion):
+    """Arriba: 'CASO SIN RESOLVER' en rojo y, si es una serie, 'PARTE 3/5' en amarillo debajo."""
+    capas = [ImageClip(_etiqueta("CASO SIN RESOLVER", ImageFont.truetype(ruta_fuente, 52),
+                                 ROJO + (235,), (255, 255, 255), 90))
+             .set_duration(duracion).set_position(("center", 170))]
+    if total > 1:
+        capas.append(ImageClip(_etiqueta(f"PARTE {parte}/{total}", ImageFont.truetype(ruta_fuente, 64),
+                                         AMARILLO + (245,), (0, 0, 0), 96))
+                     .set_duration(duracion).set_position(("center", 272)))
+    return capas
 
 
 def gancho(texto, ruta_fuente, duracion):
@@ -316,7 +324,7 @@ def gancho(texto, ruta_fuente, duracion):
     imagen = _imagen_texto(lineas, fuente, borde=7)
     alto = imagen.shape[0]
     return (ImageClip(imagen).set_start(0).set_duration(duracion)
-            .resize(_rebote).set_position(lambda t: ("center", 300 + alto * (1 - _rebote(t)) / 2))
+            .resize(_rebote).set_position(lambda t: ("center", 420 + alto * (1 - _rebote(t)) / 2))
             .crossfadeout(0.3))
 
 
@@ -332,15 +340,20 @@ def barra_progreso(duracion):
     return VideoClip(fotograma, duration=duracion).set_position((0, ALTO - alto))
 
 
-def cierre(ruta_fuente, inicio):
+def cierre(ruta_fuente, inicio, parte, total):
+    """Final: en una serie, invita a seguir para la siguiente parte; en la última, a comentar."""
     fuente = ImageFont.truetype(ruta_fuente, 80)
-    lineas = [[("¿TÚ QUÉ CREES?", AMARILLO)], [("COMENTA TU TEORÍA", (255, 255, 255))],
-              [("Y SÍGUEME PARA MÁS", (255, 255, 255))]]
+    if parte < total:
+        lineas = [[("CONTINUARÁ…", AMARILLO)], [("SÍGUEME PARA VER", (255, 255, 255))],
+                  [(f"LA PARTE {parte + 1}", AMARILLO)]]
+    else:
+        lineas = [[("¿TÚ QUÉ CREES?", AMARILLO)], [("COMENTA TU TEORÍA", (255, 255, 255))],
+                  [("Y SÍGUEME PARA MÁS", (255, 255, 255))]]
     return (ImageClip(_imagen_texto(lineas, fuente)).set_start(inicio).set_duration(CIERRE)
             .set_position(("center", "center")).crossfadein(0.3))
 
 
-def montar(historia, gancho_texto, n_episodio, archivo_voz, palabras, planos, ruta_fuente, salida):
+def montar(historia, gancho_texto, parte, total, archivo_voz, palabras, planos, ruta_fuente, salida):
     voz = AudioFileClip(archivo_voz)
     if not palabras:
         palabras = tiempos_aproximados(f"{gancho_texto} {historia}", voz.duration)
@@ -364,9 +377,9 @@ def montar(historia, gancho_texto, n_episodio, archivo_voz, palabras, planos, ru
     fondo = etalonar(fondo).set_audio(CompositeAudioClip([musica, voz]).set_duration(duracion))
 
     capas = ([fondo] + destellos(cortes)
-             + [cabecera(n_episodio, ruta_fuente, duracion), gancho(gancho_texto, ruta_fuente, fin_gancho)]
+             + cabecera(parte, total, ruta_fuente, duracion) + [gancho(gancho_texto, ruta_fuente, fin_gancho)]
              + subtitulos_palabra_a_palabra(palabras[n_gancho:], ruta_fuente)
-             + [cierre(ruta_fuente, voz.duration), barra_progreso(duracion)])
+             + [cierre(ruta_fuente, voz.duration, parte, total), barra_progreso(duracion)])
     video = CompositeVideoClip(capas, size=(ANCHO, ALTO)).set_duration(duracion)
     print(f"  {len(capas)} capas, {duracion:.1f} s; renderizando...")
     t0 = time.time()
