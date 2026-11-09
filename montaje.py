@@ -2,6 +2,7 @@
 Montaje del vídeo vertical: voz con tiempos por palabra, planos cortos con movimiento,
 etalonaje oscuro, subtítulos palabra a palabra, cabecera, barra de progreso y cierre.
 """
+import asyncio
 import json
 import os
 import random
@@ -34,8 +35,20 @@ ROJO = (220, 30, 45)
 BUSQUEDAS_GENERICAS = CANAL["busquedas_genericas"]
 
 
-async def generar_voz(texto, archivo):
-    """Genera la locución y devuelve [(inicio, fin, palabra)] en segundos."""
+async def generar_voz(texto, archivo, intentos=4):
+    """Genera la locución y devuelve [(inicio, fin, palabra)] en segundos.
+    El servicio de voz a veces no devuelve audio (sobre todo con varios canales a la vez): reintenta."""
+    for intento in range(intentos):
+        try:
+            return await _generar_voz(texto, archivo)
+        except edge_tts.exceptions.NoAudioReceived as e:
+            if intento == intentos - 1:
+                raise
+            print(f"  Aviso: la voz no respondió ({e}); reintento {intento + 2}/{intentos}...")
+            await asyncio.sleep(10 * (intento + 1) + random.uniform(0, 5))
+
+
+async def _generar_voz(texto, archivo):
     try:
         comunicar = edge_tts.Communicate(texto, VOZ, rate=VELOCIDAD, boundary="WordBoundary")
     except TypeError:  # Versiones antiguas de edge-tts ya dan WordBoundary por defecto
