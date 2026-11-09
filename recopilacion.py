@@ -17,9 +17,11 @@ import edge_tts
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 import youtube
+from canales import ACTUAL as CANAL, ruta
 
-PARTES = "partes.json"
-RELEASE = "partes"
+TEXTOS = CANAL["completo"]
+PARTES = ruta("partes.json")
+RELEASE = CANAL["release"]  # Una por canal: los archivos Episodio_N.mp4 se llaman igual en todos
 CARPETA = "completo"
 ANCHO, ALTO = 1920, 1080
 FUENTE = "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"
@@ -104,7 +106,7 @@ def miniatura(video, caso, salida):
     fondo = fondo.filter(ImageFilter.GaussianBlur(6)).point(lambda v: int(v * 0.55))
     fondo.paste(foto.resize((int(720 * foto.width / foto.height), 720)), (860, 0))
     d = ImageDraw.Draw(fondo)
-    d.text((50, 50), "CASO COMPLETO", font=ImageFont.truetype(FUENTE, 70), fill=AMARILLO,
+    d.text((50, 50), TEXTOS["etiqueta"], font=ImageFont.truetype(FUENTE, 70), fill=AMARILLO,
            stroke_width=6, stroke_fill=(0, 0, 0))
     y = 160
     for linea in textwrap.wrap(caso.upper(), width=16)[:4]:
@@ -141,9 +143,9 @@ def publicar_caso(caso, publicar=True):
         t += duracion(archivo)
 
     asyncio.run(edge_tts.Communicate(
-        f"Este es el caso completo. {caso}. Todas las partes, de principio a fin.", VOZ,
+        TEXTOS["intro"].format(caso=caso), VOZ,
     ).save(f"{CARPETA}/intro.mp3"))
-    tarjeta("CASO COMPLETO", caso, f"{CARPETA}/intro.png")
+    tarjeta(TEXTOS["etiqueta"], caso, f"{CARPETA}/intro.png")
     tarjeta_a_video(f"{CARPETA}/intro.png", duracion(f"{CARPETA}/intro.mp3") + 0.6,
                     f"{CARPETA}/00_intro.mp4", audio=f"{CARPETA}/intro.mp3")
     añadir(f"{CARPETA}/00_intro.mp4", "Introducción")
@@ -156,7 +158,7 @@ def publicar_caso(caso, publicar=True):
         vertical_a_horizontal(f"{CARPETA}/{p['archivo']}", f"{CARPETA}/{k:02d}b.mp4")
         añadir(f"{CARPETA}/{k:02d}b.mp4")
 
-    tarjeta("¿TÚ QUÉ CREES?", "Comenta tu teoría y suscríbete: cada día un caso nuevo", f"{CARPETA}/fin.png")
+    tarjeta(*TEXTOS["fin"], f"{CARPETA}/fin.png")
     tarjeta_a_video(f"{CARPETA}/fin.png", 5, f"{CARPETA}/99_fin.mp4")
     añadir(f"{CARPETA}/99_fin.mp4", "Final")
 
@@ -169,13 +171,10 @@ def publicar_caso(caso, publicar=True):
     if not publicar or not youtube.configurado():
         return None
 
-    descripcion = (f"{caso}: el caso completo, con todas sus partes seguidas.\n"
-                   "¿Tú qué crees que pasó? Cuéntamelo en los comentarios y suscríbete: cada día un caso nuevo.\n\n"
-                   + "\n".join(capitulos)
-                   + "\n\n#misterio #casosreales #sinresolver #enigma #casocompleto")
-    video_id, enlace = youtube.subir(salida, f"{caso} | El caso completo", descripcion,
-                                     ["Misterio", "CasosReales", "SinResolver", "Enigma", "CasoCompleto"],
-                                     short=False)
+    descripcion = (TEXTOS["descripcion"].format(caso=caso) + "\n\n" + "\n".join(capitulos)
+                   + "\n\n" + TEXTOS["hashtags"])
+    video_id, enlace = youtube.subir(salida, TEXTOS["titulo"].format(caso=caso)[:100], descripcion,
+                                     TEXTOS["etiquetas"], short=False, categoria=CANAL["categoria"])
     print(f"Caso completo publicado: {enlace}")
     try:
         miniatura(f"{CARPETA}/{partes[0]['archivo']}", caso, f"{CARPETA}/miniatura.png")

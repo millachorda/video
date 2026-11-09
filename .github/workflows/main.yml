@@ -5,8 +5,8 @@ on:
     # Minutos poco habituales: GitHub retrasa mucho las tareas programadas en punto
     # 5 al día = las 5 partes de un caso; tras la última se publica también el caso completo
     - cron: '37 7,10,13,16,19 * * *'  # CurioMind: ~8:37, 11:37, 14:37, 17:37 y 20:37 en España (invierno)
-    # Canales nuevos (¿Y Si…? y De Cero a Millón): 3 al día para empezar
-    - cron: '17 9,15,20 * * *'        # ~10:17, 16:17 y 21:17 en España (invierno)
+    # Canales nuevos (¿Y Si…? y De Cero a Millón): también 5 al día, una serie de 5 partes diaria
+    - cron: '7 9,12,15,18,21 * * *'   # ~10:07, 13:07, 16:07, 19:07 y 22:07 en España (invierno)
   workflow_dispatch:
     inputs:
       canal:
@@ -40,7 +40,7 @@ jobs:
         case "${ELEGIDO:-}" in
           todos) c='["curiomind","ysi","decero"]' ;;
           nuevos) c='["ysi","decero"]' ;;
-          "") if [ "$PROGRAMA" = "17 9,15,20 * * *" ]; then c='["ysi","decero"]'; else c='["curiomind"]'; fi ;;
+          "") if [ "$PROGRAMA" = "7 9,12,15,18,21 * * *" ]; then c='["ysi","decero"]'; else c='["curiomind"]'; fi ;;
           *) c="[\"$ELEGIDO\"]" ;;
         esac
         echo "canales=$c" >> "$GITHUB_OUTPUT"
@@ -109,7 +109,7 @@ jobs:
       run: |
         git config --global user.name "GitHub Action Bot"
         git config --global user.email "actions@github.com"
-        git add contador.txt historias.txt casos_publicados.txt partes.json canales/*/*.txt
+        git add contador.txt historias.txt casos_publicados.txt partes.json canales
         git diff --staged --quiet && exit 0
         git commit -m "🤖 Bot (${{ matrix.canal }}): episodio procesado"
         # Varios canales pueden guardar a la vez: si el push choca, se reintenta

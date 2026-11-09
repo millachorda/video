@@ -63,19 +63,19 @@ def _pedir(api_key, instrucciones, limite_segundos, temperatura, espera_maxima=3
 def dividir_en_partes(api_key, historia, n):
     """Convierte un caso en una serie de n vídeos que acaban en suspense para que la gente
     siga el canal. Devuelve la lista de textos o lanza una excepción si no sale bien."""
-    instrucciones = f"""Este caso real de misterio se va a contar en una serie de {n} vídeos cortos seguidos.
+    from canales import ACTUAL
+    que, avance, final, reglas = ACTUAL["serie"]
+    instrucciones = f"""{que} se va a contar en una serie de {n} vídeos cortos seguidos.
 Escríbelo como {n} partes en español de España, en tercera persona, cada una en un solo párrafo
 de entre 380 y 480 caracteres (unos 30 segundos narrada):
-- Parte 1: presenta el caso con una primera frase que impacte y corta en el momento más intrigante.
-- Partes intermedias: empiezan recordando en una frase dónde se quedó la anterior, avanzan con hechos
-  nuevos (la investigación, las pruebas, los testigos, las teorías…) y acaban en suspense.
-- Última parte: cuenta lo que se sabe hoy y termina con una pregunta abierta para que la gente comente.
+- Parte 1: lo presenta con una primera frase que impacte y corta en el momento más intrigante.
+- Partes intermedias: empiezan recordando en una frase dónde se quedó la anterior, avanzan con cosas
+  nuevas ({avance}) y acaban en suspense.
+- Última parte: {final} y termina con una pregunta abierta para que la gente comente.
 - Ninguna parte debe repetir lo que ya contó otra, salvo la frase de enlace.
-Usa SOLO hechos reales y documentados de este caso; puedes añadir detalles reales conocidos, pero
-no inventes nombres, fechas, cifras ni escenas. Si no hay tantos hechos, profundiza en el contexto
-histórico, la investigación y las teorías publicadas. Sin títulos, sin emojis y sin saltos de línea.
+{reglas} Sin títulos, sin emojis y sin saltos de línea.
 
-Caso:
+Texto original:
 {historia}
 
 Devuelve solo un array JSON con {n} strings, una parte por elemento, en orden."""
