@@ -17,6 +17,7 @@ from moviepy.editor import (VideoClip, VideoFileClip, AudioFileClip, ImageClip,
 from moviepy.audio.AudioClip import AudioArrayClip
 
 import sonido
+from canales import ACTUAL as CANAL
 from moviepy.video.fx.all import loop
 
 ANCHO, ALTO = 1080, 1920
@@ -29,11 +30,8 @@ GOLPE = 0.25                 # Duración del golpe de zoom al empezar cada plano
 AMARILLO = (255, 222, 0)
 ROJO = (220, 30, 45)
 
-# Si Gemini no está disponible, se combinan búsquedas genéricas de ambiente
-BUSQUEDAS_GENERICAS = [
-    "dark forest fog", "abandoned house", "night sky stars", "old documents",
-    "foggy road night", "candle dark", "dark corridor", "storm clouds", "old photographs",
-]
+# Si Gemini no está disponible, se combinan búsquedas genéricas del tema del canal
+BUSQUEDAS_GENERICAS = CANAL["busquedas_genericas"]
 
 
 async def generar_voz(texto, archivo):
@@ -65,12 +63,7 @@ def tiempos_aproximados(texto, duracion):
     return salida
 
 
-GANCHOS_GENERICOS = [
-    "Este caso sigue sin resolverse.",
-    "Nadie ha conseguido explicar lo que pasó.",
-    "Lo que ocurrió aquí sigue siendo un misterio.",
-    "Este misterio aún no tiene respuesta.",
-]
+GANCHOS_GENERICOS = CANAL["ganchos_genericos"]
 
 
 def planificar(historia, api_key):
@@ -86,14 +79,13 @@ def planificar(historia, api_key):
             headers={"x-goog-api-key": api_key}, timeout=60,
             json={
                 "contents": [{"parts": [{"text": (
-                    "Para un vídeo corto sobre esta historia de misterio real, devuelve un objeto JSON con:\n"
+                    f"Para un vídeo corto sobre esta {CANAL['tema']}, devuelve un objeto JSON con:\n"
                     '- "gancho": una frase en español de 5 a 9 palabras que se dirá ANTES de la historia para '
                     "que nadie deslice el vídeo en el primer segundo. Tiene que llevar un dato concreto y "
-                    "chocante del caso (una cifra, un objeto, un lugar, algo imposible), no frases genéricas como "
-                    "'este caso sigue sin resolverse'. Ejemplos de estilo: 'Desaparecieron 39 personas en pleno "
-                    "vuelo', 'Encontraron su diario escrito por otra persona'. Sin destripar el final y sin "
+                    "chocante de la historia (una cifra, un objeto, un lugar, algo imposible), no frases genéricas. "
+                    f"Ejemplos de estilo: {CANAL['ejemplos_gancho']}. Sin destripar el final y sin "
                     "inventar nada que no esté en la historia.\n"
-                    '- "busquedas": 5 búsquedas cortas en inglés (2-3 palabras) para vídeos de stock atmosféricos '
+                    '- "busquedas": 5 búsquedas cortas en inglés (2-3 palabras) para vídeos de stock ' f"{CANAL['estilo_busquedas']} "
                     "sin personas reconocibles que ilustren la historia.\n"
                     '- "hashtags": 3 hashtags en español o con el nombre del caso, sin espacios, con #, '
                     "específicos de esta historia (lugar, nombre del caso, tema).\n\n" + historia)}]}],
@@ -204,13 +196,17 @@ def _viñeta():
     """Máscara que oscurece los bordes y el conjunto para un tono de documental de misterio."""
     y, x = np.ogrid[-1:1:ALTO * 1j, -1:1:ANCHO * 1j]
     distancia = np.sqrt((x * 0.9) ** 2 + (y * 0.7) ** 2)
-    mascara = np.clip(1.05 - 0.55 * distancia ** 2, 0.35, 1.0) * 0.82
+    if CANAL["oscuro"]:
+        mascara = np.clip(1.05 - 0.55 * distancia ** 2, 0.35, 1.0) * 0.82
+    else:  # Canales luminosos: viñeta suave, solo para que el texto se lea bien
+        mascara = np.clip(1.05 - 0.35 * distancia ** 2, 0.6, 1.0) * 0.9
     return mascara[..., None].astype(np.float32)
 
 
 def etalonar(clip):
     mascara = _viñeta()
-    tinte = np.array([0.92, 0.97, 1.10], dtype=np.float32)  # Frío, ligeramente azulado
+    tinte = np.array([0.92, 0.97, 1.10] if CANAL["oscuro"] else [1.04, 1.0, 0.96],
+                     dtype=np.float32)  # Frío para misterio, cálido para el resto
 
     def aplicar(frame):
         return np.clip(frame.astype(np.float32) * mascara * tinte, 0, 255).astype(np.uint8)
@@ -234,9 +230,7 @@ def _imagen_texto(lineas, fuente, borde=8, interlineado=1.15):
     return np.array(img)
 
 
-PALABRAS_CLAVE = {"NADIE", "NUNCA", "JAMÁS", "MUERTE", "MUERTOS", "MURIERON", "ASESINADOS", "ASESINATO",
-                  "DESAPARECIÓ", "DESAPARECIERON", "DESAPARICIÓN", "SANGRE", "CADÁVER", "CUERPOS", "MISTERIO",
-                  "INEXPLICABLE", "SECRETO", "EXTRAÑO", "TERROR", "SEÑAL", "NINGUNA", "NINGÚN"}
+PALABRAS_CLAVE = set(CANAL["palabras_clave"])
 ROJO_TEXTO = (255, 70, 70)
 
 
@@ -309,9 +303,9 @@ def _etiqueta(texto, fuente, fondo, color, alto):
 
 
 def cabecera(parte, total, ruta_fuente, duracion):
-    """Arriba: 'CASO SIN RESOLVER' en rojo y, si es una serie, 'PARTE 3/5' en amarillo debajo."""
-    capas = [ImageClip(_etiqueta("CASO SIN RESOLVER", ImageFont.truetype(ruta_fuente, 52),
-                                 ROJO + (235,), (255, 255, 255), 90))
+    """Arriba: la etiqueta del canal ('CASO SIN RESOLVER'…) y, si es una serie, 'PARTE 3/5' debajo."""
+    capas = [ImageClip(_etiqueta(CANAL["etiqueta"], ImageFont.truetype(ruta_fuente, 52),
+                                 tuple(CANAL["color_etiqueta"]) + (235,), (255, 255, 255), 90))
              .set_duration(duracion).set_position(("center", 170))]
     if total > 1:
         capas.append(ImageClip(_etiqueta(f"PARTE {parte}/{total}", ImageFont.truetype(ruta_fuente, 64),
@@ -352,8 +346,7 @@ def cierre(ruta_fuente, inicio, parte, total):
         lineas = [[("CONTINUARÁ…", AMARILLO)], [("SÍGUEME PARA VER", (255, 255, 255))],
                   [(f"LA PARTE {parte + 1}", AMARILLO)]]
     else:
-        lineas = [[("¿TÚ QUÉ CREES?", AMARILLO)], [("COMENTA TU TEORÍA", (255, 255, 255))],
-                  [("Y SÍGUEME PARA MÁS", (255, 255, 255))]]
+        lineas = [[(texto, AMARILLO if destacado else (255, 255, 255))] for texto, destacado in CANAL["cierre"]]
     return (ImageClip(_imagen_texto(lineas, fuente)).set_start(inicio).set_duration(CIERRE)
             .set_position(("center", "center")).crossfadein(0.3))
 
@@ -382,7 +375,8 @@ def montar(historia, gancho_texto, parte, total, archivo_voz, palabras, planos, 
         if t < duracion - 0.3:
             cortes.append(t)
 
-    musica = AudioArrayClip(sonido.banda_sonora(duracion, palabras, cortes, fin_gancho, voz.duration),
+    musica = AudioArrayClip(sonido.banda_sonora(duracion, palabras, cortes, fin_gancho, voz.duration,
+                                                CANAL["musica"]),
                             fps=sonido.FS)
     fondo = etalonar(fondo).set_audio(CompositeAudioClip([musica, voz]).set_duration(duracion))
 

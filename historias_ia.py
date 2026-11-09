@@ -86,17 +86,16 @@ Devuelve solo un array JSON con {n} strings, una parte por elemento, en orden.""
     return partes
 
 
-def generar_historias(api_key, casos_a_evitar):
+def generar_historias(api_key, casos_a_evitar, encargo=None):
     """Pide a Gemini historias nuevas con el mismo formato que historias.txt (una por línea)."""
     lista_evitar = "\n".join(f"- {c}" for c in casos_a_evitar) or "- (ninguno)"
-    instrucciones = f"""Escribe {HISTORIAS_POR_TANDA} historias para vídeos cortos de un canal de misterios reales sin resolver.
-
-Reglas:
-- Solo casos REALES, muy conocidos y bien documentados (desapariciones, señales, crímenes sin resolver, enigmas históricos). No inventes casos, nombres, fechas ni cifras; si dudas de un dato, no lo incluyas.
-- En español de España, narradas en tercera persona, en un solo párrafo de entre 400 y 480 caracteres (unos 30 segundos narrada).
-- La primera frase tiene que impactar por sí sola (un dato inquietante, no una introducción), cuenta los hechos clave y termina con una pregunta abierta sobre el misterio.
+    if encargo is None:
+        from canales import ACTUAL
+        encargo = ACTUAL["encargo_historias"]
+    instrucciones = f"""Escribe {HISTORIAS_POR_TANDA} {encargo}
+- En español de España, en un solo párrafo de entre 400 y 480 caracteres (unos 30 segundos narrada).
 - Sin títulos, sin emojis, sin comillas tipográficas raras y sin saltos de línea dentro de cada historia.
-- No repitas ninguno de estos casos, que ya están publicados o en cola:
+- No repitas ninguno de estos temas, que ya están publicados o en cola:
 {lista_evitar}
 
 Devuelve solo un array JSON de strings, una historia por elemento."""

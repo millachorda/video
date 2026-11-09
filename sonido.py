@@ -18,11 +18,18 @@ def _ruido_grave(segundos, alfa):
     return lfilter([alfa], [1, alfa - 1], rng.standard_normal(int(segundos * FS)))
 
 
-def ambiente(duracion):
-    """Zumbido grave en La menor que respira lentamente, con un viento de fondo."""
+# Acordes de fondo y escalas de las notas sueltas según el estilo del canal
+ACORDES = {"misterio": [(55.0, 1.0), (82.41, 0.55), (110.0, 0.35), (130.81, 0.25)],     # La menor
+           "epica": [(65.41, 1.0), (98.0, 0.6), (130.81, 0.45), (164.81, 0.35)]}       # Do mayor
+ESCALAS = {"misterio": [440.0, 523.25, 587.33, 659.25, 783.99, 880.0],
+           "epica": [523.25, 587.33, 659.25, 783.99, 880.0, 1046.5]}                 # Pentatónica mayor
+
+
+def ambiente(duracion, estilo="misterio"):
+    """Zumbido grave que respira lentamente, con un viento de fondo."""
     t = _t(duracion)
     zumbido = np.zeros_like(t)
-    for frec, vol in [(55.0, 1.0), (82.41, 0.55), (110.0, 0.35), (130.81, 0.25)]:
+    for frec, vol in ACORDES[estilo]:
         desafino = 1 + 0.003 * np.sin(2 * np.pi * 0.07 * t + frec)
         zumbido += vol * np.sin(2 * np.pi * frec * desafino * t)
     zumbido *= 0.6 + 0.4 * np.sin(2 * np.pi * 0.08 * t) ** 2  # Respira cada ~6 s
@@ -46,10 +53,10 @@ def latidos(duracion, inicio=2.5, periodo=1.15):
     return salida
 
 
-def notas(duracion):
-    """Notas sueltas agudas tipo caja de música, cada 2-4 s, de una escala menor."""
+def notas(duracion, estilo="misterio"):
+    """Notas sueltas agudas tipo caja de música, cada 2-4 s."""
     salida = np.zeros(int(duracion * FS))
-    escala = [440.0, 523.25, 587.33, 659.25, 783.99, 880.0]
+    escala = ESCALAS[estilo]
     nota_t = _t(2.5)
     pos = 1.0
     while pos < duracion - 1:
@@ -86,10 +93,15 @@ def _poner(pista, efecto, segundo, vol):
     pista[i:i + len(trozo)] += vol * trozo
 
 
-def banda_sonora(duracion, palabras, cortes, fin_gancho, inicio_cierre):
-    """Devuelve un array estéreo (n, 2) listo para mezclar bajo la voz."""
+def banda_sonora(duracion, palabras, cortes, fin_gancho, inicio_cierre, estilo="misterio"):
+    """Devuelve un array estéreo (n, 2) listo para mezclar bajo la voz.
+    estilo: "misterio" (oscuro, con latidos) o "epica" (mayor, con un pulso rápido que empuja)."""
     n = int(duracion * FS)
-    musica = (0.9 * ambiente(duracion) + 0.55 * latidos(duracion) + 0.18 * notas(duracion))[:n]
+    if estilo == "misterio":
+        pulso = 0.55 * latidos(duracion)
+    else:
+        pulso = 0.4 * latidos(duracion, inicio=0.5, periodo=0.55)
+    musica = (0.9 * ambiente(duracion, estilo) + pulso + 0.25 * notas(duracion, estilo))[:n]
 
     # Ducking: la música baja mientras suena la voz y sube en las pausas
     hablando = np.zeros(n)

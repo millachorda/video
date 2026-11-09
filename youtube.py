@@ -7,7 +7,9 @@ from googleapiclient.http import MediaFileUpload
 
 YT_CLIENT_ID = os.environ.get("YT_CLIENT_ID")
 YT_CLIENT_SECRET = os.environ.get("YT_CLIENT_SECRET")
-YT_REFRESH_TOKEN = os.environ.get("YT_REFRESH_TOKEN")
+# Cada canal tiene su propio permiso (refresh token); el cliente OAuth es el mismo para todos
+from canales import ACTUAL
+YT_REFRESH_TOKEN = os.environ.get(ACTUAL["secret_youtube"])
 
 
 def configurado():
@@ -24,7 +26,7 @@ def _cliente():
     return build("youtube", "v3", credentials=credenciales, cache_discovery=False)
 
 
-def subir(archivo, titulo, descripcion, etiquetas, short=True):
+def subir(archivo, titulo, descripcion, etiquetas, short=True, categoria="24"):
     """Sube el vídeo en público y devuelve (id, enlace)."""
     youtube = _cliente()
     cuerpo = {
@@ -32,7 +34,7 @@ def subir(archivo, titulo, descripcion, etiquetas, short=True):
             "title": titulo[:100],
             "description": descripcion[:5000],
             "tags": etiquetas,
-            "categoryId": "24",  # Entretenimiento
+            "categoryId": categoria,  # 24 Entretenimiento, 27 Educación, 28 Ciencia
         },
         "status": {
             "privacyStatus": "public",

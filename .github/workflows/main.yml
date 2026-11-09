@@ -4,9 +4,16 @@ on:
   schedule:
     # Minutos poco habituales: GitHub retrasa mucho las tareas programadas en punto
     # 5 al día = las 5 partes de un caso; tras la última se publica también el caso completo
-    - cron: '37 7,10,13,16,19 * * *'  # ~8:37, 11:37, 14:37, 17:37 y 20:37 en España (invierno)
+    - cron: '37 7,10,13,16,19 * * *'  # CurioMind: ~8:37, 11:37, 14:37, 17:37 y 20:37 en España (invierno)
+    # Canales nuevos (¿Y Si…? y De Cero a Millón): 3 al día para empezar
+    - cron: '17 9,15,20 * * *'        # ~10:17, 16:17 y 21:17 en España (invierno)
   workflow_dispatch:
     inputs:
+      canal:
+        description: 'Canal'
+        type: choice
+        options: [curiomind, ysi, decero, nuevos, todos]
+        default: curiomind
       prueba:
         description: 'Solo generar el vídeo y mandarlo a Telegram (sin publicar ni gastar historia)'
         type: boolean
@@ -16,18 +23,40 @@ on:
         type: boolean
         default: false
 
-# Nunca dos episodios a la vez: los dos leerían el mismo contador
-concurrency:
-  group: episodio
-  cancel-in-progress: false
-
 permissions:
   contents: write
 
 jobs:
+  elegir:
+    runs-on: ubuntu-24.04
+    outputs:
+      canales: ${{ steps.c.outputs.canales }}
+    steps:
+    - id: c
+      env:
+        PROGRAMA: ${{ github.event.schedule }}
+        ELEGIDO: ${{ inputs.canal }}
+      run: |
+        case "${ELEGIDO:-}" in
+          todos) c='["curiomind","ysi","decero"]' ;;
+          nuevos) c='["ysi","decero"]' ;;
+          "") if [ "$PROGRAMA" = "17 9,15,20 * * *" ]; then c='["ysi","decero"]'; else c='["curiomind"]'; fi ;;
+          *) c="[\"$ELEGIDO\"]" ;;
+        esac
+        echo "canales=$c" >> "$GITHUB_OUTPUT"
+
   build-and-render:
+    needs: elegir
     runs-on: ubuntu-24.04
     timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        canal: ${{ fromJSON(needs.elegir.outputs.canales) }}
+    # Nunca dos episodios del mismo canal a la vez: los dos leerían el mismo contador
+    concurrency:
+      group: episodio-${{ matrix.canal }}
+      cancel-in-progress: false
     steps:
     - name: 1. Descargar los archivos del repositorio
       uses: actions/checkout@v5
@@ -61,6 +90,9 @@ jobs:
         YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
         YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
         YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+        YT_REFRESH_TOKEN_YSI: ${{ secrets.YT_REFRESH_TOKEN_YSI }}
+        YT_REFRESH_TOKEN_DECERO: ${{ secrets.YT_REFRESH_TOKEN_DECERO }}
+        CANAL: ${{ matrix.canal }}
         TIKTOK_CLIENT_KEY: ${{ secrets.TIKTOK_CLIENT_KEY }}
         TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}
         TIKTOK_REFRESH_TOKEN: ${{ secrets.TIKTOK_REFRESH_TOKEN }}
@@ -77,5 +109,9 @@ jobs:
       run: |
         git config --global user.name "GitHub Action Bot"
         git config --global user.email "actions@github.com"
-        git add contador.txt historias.txt casos_publicados.txt partes.json
-        git diff --staged --quiet || (git commit -m "🤖 Bot: Episodio procesado con éxito" && git pull --rebase && git push)
+        git add contador.txt historias.txt casos_publicados.txt partes.json canales/*/*.txt
+        git diff --staged --quiet && exit 0
+        git commit -m "🤖 Bot (${{ matrix.canal }}): episodio procesado"
+        # Varios canales pueden guardar a la vez: si el push choca, se reintenta
+        for i in 1 2 3 4 5; do git pull --rebase && git push && exit 0; sleep $((RANDOM % 10 + 5)); done
+        exit 1

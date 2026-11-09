@@ -11,6 +11,7 @@ from historias_ia import generar_historias, dividir_en_partes
 import montaje
 import recopilacion
 import youtube
+from canales import ACTUAL as CANAL, ruta
 
 # ---------------------------------------------------------------
 # Configuración
@@ -36,7 +37,8 @@ ENCOLAR_TIKTOK = os.environ.get("ENCOLAR_TIKTOK") == "true"
 AVISO_HISTORIAS_RESTANTES = 15  # Avisa por Telegram cuando queden menos de estas
 # Cada caso se cuenta en una serie de vídeos que acaban en suspense: la gente sigue el canal
 # para ver la siguiente parte. Con 1 vuelve a ser un vídeo por caso.
-PARTES_POR_CASO = int(os.environ.get("PARTES_POR_CASO") or 5)
+PARTES_POR_CASO = CANAL["partes"] or int(os.environ.get("PARTES_POR_CASO") or 5)
+CONTADOR, HISTORIAS, PUBLICADOS = ruta("contador.txt"), ruta("historias.txt"), ruta("casos_publicados.txt")
 
 FUENTES_POSIBLES = [
     "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
@@ -131,16 +133,22 @@ async def main():
     # 1. Leer contador e historia
     # -----------------------------------------------------------
     print("[1/7] Iniciando lectura de archivos del repositorio...")
-    if not os.path.exists("contador.txt"):
-        with open("contador.txt", "w") as f:
+    print(f"Canal: {CANAL['nombre']}")
+    if not os.path.exists(CONTADOR):
+        with open(CONTADOR, "w") as f:
             f.write("1")
-    with open("contador.txt", "r") as f:
+    with open(CONTADOR, "r") as f:
         n_episodio = f.read().strip() or "1"
 
-    if not os.path.exists("historias.txt") or os.stat("historias.txt").st_size == 0:
+    if (not os.path.exists(HISTORIAS) or not open(HISTORIAS, encoding="utf-8-sig").read().strip()) and GEMINI_API_KEY:
+        # Canal recién creado: Gemini escribe la primera tanda de historias
+        print("No hay historias: pidiendo la primera tanda a Gemini...")
+        with open(HISTORIAS, "w", encoding="utf-8") as f:
+            f.writelines(h + "\n" for h in generar_historias(GEMINI_API_KEY, [], CANAL["encargo_historias"]))
+    if not os.path.exists(HISTORIAS) or os.stat(HISTORIAS).st_size == 0:
         print("ERROR: El archivo historias.txt está vacío o no existe.")
         sys.exit(1)
-    with open("historias.txt", "r", encoding="utf-8-sig") as f:
+    with open(HISTORIAS, "r", encoding="utf-8-sig") as f:
         lineas = [l for l in f.readlines() if l.strip()]
     if not lineas:
         print("ERROR: historias.txt solo contiene líneas vacías.")
@@ -212,8 +220,8 @@ async def main():
     # -----------------------------------------------------------
     # Hashtags: los del caso concreto (Gemini) primero, luego los fijos del nicho
     del_caso = " ".join(plan["hashtags"])
-    hashtags = f"{del_caso} #misterio #casosreales #sinresolver #enigma #shorts".strip()
-    hashtags_tiktok = f"{del_caso} #misterio #casosreales #sinresolver #parati #fyp".strip()
+    hashtags = f"{del_caso} {CANAL['hashtags_youtube']}".strip()
+    hashtags_tiktok = f"{del_caso} {CANAL['hashtags_tiktok']}".strip()
     # Título: el gancho del caso (el de la parte 1 para toda la serie), que despierta curiosidad
     if not titulo_base:
         titulo_base = sin_markdown(plan["gancho"]).rstrip(".")
@@ -229,14 +237,16 @@ async def main():
             if enlace_anterior:
                 descripcion += f"⏪ Parte anterior: {enlace_anterior}\n\n"
             _, enlace = youtube.subir(archivo_final_mp4, f"{titulo[:91]} #Shorts", descripcion + hashtags,
-                                     ["Shorts", "Misterio", "CasosReales", "SinResolver", "Enigma"])
+                                     CANAL["etiquetas"], categoria=CANAL["categoria"])
             print(f"Subido a YouTube: {enlace}")
             estados.append(f"▶️ YouTube Shorts: [publicado]({enlace})")
         except Exception as e:
             print(f"AVISO: no se pudo subir a YouTube: {e}")
             estados.append("⚠️ YouTube Shorts: falló, súbelo tú a mano")
 
-    if (TIKTOK_MODO == "aprobacion" and not PRUEBA) or ENCOLAR_TIKTOK:
+    if not CANAL["tiktok"]:
+        pass  # La cuenta de TikTok conectada es solo la de un canal
+    elif (TIKTOK_MODO == "aprobacion" and not PRUEBA) or ENCOLAR_TIKTOK:
         print("[6/7] Dejando el vídeo en la cola de TikTok...")
         try:
             encolar_para_tiktok(archivo_final_mp4, n_episodio, titulo, f"{titulo} {hashtags_tiktok}")
@@ -267,7 +277,7 @@ async def main():
 
     print("[6/7] Conectando con los servidores de Telegram...")
     mensaje_texto = (
-        f"🎬 ¡TU VIDEO ESTÁ LISTO!\n\n"
+        f"🎬 {sin_markdown(CANAL['nombre'])}: ¡VÍDEO LISTO!\n\n"
         f"📌 *{titulo}*\n"
         + "\n".join(estados) + "\n\n"
         f"🏷️ *Texto para TikTok:*\n"
@@ -300,10 +310,11 @@ async def main():
         if len(casos_en_cola) < AVISO_HISTORIAS_RESTANTES and GEMINI_API_KEY and not PRUEBA:
             print("Quedan pocas historias: pidiendo nuevas a Gemini...")
             try:
-                ya_usadas = [l.strip() for l in open("casos_publicados.txt", encoding="utf-8")] \
-                    if os.path.exists("casos_publicados.txt") else []
+                ya_usadas = [l.strip() for l in open(PUBLICADOS, encoding="utf-8")] \
+                    if os.path.exists(PUBLICADOS) else []
                 en_cola = [h.strip()[:100] for h in casos_en_cola]
-                nuevas = generar_historias(GEMINI_API_KEY, ya_usadas + [caso_original[:100]] + en_cola)
+                nuevas = generar_historias(GEMINI_API_KEY, ya_usadas + [caso_original[:100]] + en_cola,
+                                            CANAL["encargo_historias"])
                 historias_restantes += [h + "\n" for h in nuevas]
                 casos_en_cola += nuevas
                 print(f"Gemini ha escrito {len(nuevas)} historias nuevas.")
@@ -328,18 +339,18 @@ async def main():
         print("Modo prueba: no se guarda el progreso.")
         return
     print("[7/7] Guardando el progreso del canal en la nube...")
-    with open("contador.txt", "w") as f:
+    with open(CONTADOR, "w") as f:
         f.write(str(int(n_episodio) + 1))
     if historias_restantes and es_parte_pendiente(historias_restantes[0]):
         siguiente = json.loads(historias_restantes[0])
         if siguiente.get("caso") == caso_original:
             siguiente.update(titulo=titulo_base, anterior=enlace)
             historias_restantes[0] = json.dumps(siguiente, ensure_ascii=False) + "\n"
-    with open("historias.txt", "w", encoding="utf-8") as f:
+    with open(HISTORIAS, "w", encoding="utf-8") as f:
         f.writelines(historias_restantes)
     # Registro de casos ya usados, para que Gemini no los repita
     if parte == 1:
-        with open("casos_publicados.txt", "a", encoding="utf-8") as f:
+        with open(PUBLICADOS, "a", encoding="utf-8") as f:
             f.write(caso_original[:100] + "\n")
     print("Todo guardado correctamente. Sistema listo para mañana.")
 

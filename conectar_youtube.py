@@ -3,7 +3,10 @@ Conecta el bot con tu canal de YouTube (se ejecuta una sola vez, en tu ordenador
 
 Uso:
     pip install google-auth-oauthlib
-    python conectar_youtube.py ruta/al/client_secret.json
+    python conectar_youtube.py ruta/al/client_secret.json [canal]
+
+canal: curiomind (por defecto), ysi, decero… (ver canales.py). Al dar permiso, Google
+pregunta qué canal usar: elige el que corresponda.
 
 Abre el navegador para que des permiso a tu canal y guarda las credenciales
 directamente como secrets del repositorio (YT_CLIENT_ID, YT_CLIENT_SECRET,
@@ -19,7 +22,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 REPO = "millachorda/video"
 GH = shutil.which("gh") or r"C:\Program Files\GitHub CLI\gh.exe"
 
-if len(sys.argv) != 2:
+if len(sys.argv) not in (2, 3):
     print(__doc__)
     sys.exit(1)
 
@@ -28,11 +31,15 @@ with open(sys.argv[1], encoding="utf-8") as f:
 
 flow = InstalledAppFlow.from_client_secrets_file(
     sys.argv[1], scopes=["https://www.googleapis.com/auth/youtube.upload"])
+import os
+os.environ["CANAL"] = sys.argv[2] if len(sys.argv) == 3 else "curiomind"
+from canales import ACTUAL
+print(f"Conectando el canal {ACTUAL['nombre']}: elige ese canal cuando Google lo pregunte.")
 credenciales = flow.run_local_server(port=0, access_type="offline", prompt="consent")
 
 for nombre, valor in [("YT_CLIENT_ID", cliente["client_id"]),
                       ("YT_CLIENT_SECRET", cliente["client_secret"]),
-                      ("YT_REFRESH_TOKEN", credenciales.refresh_token)]:
+                      (ACTUAL["secret_youtube"], credenciales.refresh_token)]:
     subprocess.run([GH, "secret", "set", nombre, "-R", REPO], input=valor, text=True, check=True)
 
-print("Listo: YouTube conectado. El bot subirá los Shorts automáticamente.")
+print(f"Listo: {ACTUAL['nombre']} conectado. El bot subirá los Shorts automáticamente.")
