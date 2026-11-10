@@ -11,6 +11,7 @@ from historias_ia import generar_historias, dividir_en_partes
 import montaje
 import recopilacion
 import youtube
+import horario
 from canales import ACTUAL as CANAL, ruta
 
 # ---------------------------------------------------------------
@@ -39,6 +40,9 @@ AVISO_HISTORIAS_RESTANTES = 15  # Avisa por Telegram cuando queden menos de esta
 # para ver la siguiente parte. Con 1 vuelve a ser un vídeo por caso.
 PARTES_POR_CASO = CANAL["partes"] or int(os.environ.get("PARTES_POR_CASO") or 5)
 CONTADOR, HISTORIAS, PUBLICADOS = ruta("contador.txt"), ruta("historias.txt"), ruta("casos_publicados.txt")
+HOY = ruta("hoy.txt")  # Vídeos publicados hoy, para el horario aleatorio
+# Lanzado por el horario (no a mano): se comprueba otra vez que toca, por si otra ejecución ya lo hizo
+PROGRAMADO = os.environ.get("PROGRAMADO") == "true"
 
 FUENTES_POSIBLES = [
     "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
@@ -134,6 +138,10 @@ async def main():
     # -----------------------------------------------------------
     print("[1/7] Iniciando lectura de archivos del repositorio...")
     print(f"Canal: {CANAL['nombre']}")
+    from canales import ID
+    if PROGRAMADO and not horario.toca(ID, HOY):
+        print("Ahora no le toca a este canal (otra ejecución ya publicó este vídeo).")
+        return
     if not os.path.exists(CONTADOR):
         with open(CONTADOR, "w") as f:
             f.write("1")
@@ -297,7 +305,8 @@ async def main():
         if total > 1 and parte == total and not PRUEBA:
             print("Última parte: montando y publicando el caso completo...")
             try:
-                enlace_completo = recopilacion.publicar_caso(titulo_base)
+                # En otro hilo: publicar_caso usa asyncio.run, que no funciona dentro de main()
+                enlace_completo = await asyncio.to_thread(recopilacion.publicar_caso, titulo_base)
                 if enlace_completo:
                     await bot.send_message(chat_id=TELEGRAM_CHAT_ID,
                                            text=f"📺 Caso completo publicado en YouTube: {enlace_completo}")
@@ -341,6 +350,7 @@ async def main():
     print("[7/7] Guardando el progreso del canal en la nube...")
     with open(CONTADOR, "w") as f:
         f.write(str(int(n_episodio) + 1))
+    horario.apuntar(HOY)
     if historias_restantes and es_parte_pendiente(historias_restantes[0]):
         siguiente = json.loads(historias_restantes[0])
         if siguiente.get("caso") == caso_original:

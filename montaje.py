@@ -35,24 +35,29 @@ ROJO = (220, 30, 45)
 BUSQUEDAS_GENERICAS = CANAL["busquedas_genericas"]
 
 
-async def generar_voz(texto, archivo, intentos=4):
+# Si la voz principal no devuelve audio (le pasa a veces a la multilingüe), se usan estas
+VOCES_RESERVA = ["en-US-BrianMultilingualNeural", "es-ES-AlvaroNeural"]
+
+
+async def generar_voz(texto, archivo):
     """Genera la locución y devuelve [(inicio, fin, palabra)] en segundos.
-    El servicio de voz a veces no devuelve audio (sobre todo con varios canales a la vez): reintenta."""
-    for intento in range(intentos):
+    El servicio de voz a veces no devuelve audio: reintenta y, si sigue fallando, cambia de voz."""
+    intentos = [VOZ, VOZ] + [v for v in VOCES_RESERVA if v != VOZ]
+    for n, voz in enumerate(intentos):
         try:
-            return await _generar_voz(texto, archivo)
+            return await _generar_voz(texto, archivo, voz)
         except edge_tts.exceptions.NoAudioReceived as e:
-            if intento == intentos - 1:
+            if n == len(intentos) - 1:
                 raise
-            print(f"  Aviso: la voz no respondió ({e}); reintento {intento + 2}/{intentos}...")
-            await asyncio.sleep(10 * (intento + 1) + random.uniform(0, 5))
+            print(f"  Aviso: la voz {voz} no respondió ({e}); pruebo con {intentos[n + 1]}...")
+            await asyncio.sleep(8 + random.uniform(0, 5))
 
 
-async def _generar_voz(texto, archivo):
+async def _generar_voz(texto, archivo, voz):
     try:
-        comunicar = edge_tts.Communicate(texto, VOZ, rate=VELOCIDAD, boundary="WordBoundary")
+        comunicar = edge_tts.Communicate(texto, voz, rate=VELOCIDAD, boundary="WordBoundary")
     except TypeError:  # Versiones antiguas de edge-tts ya dan WordBoundary por defecto
-        comunicar = edge_tts.Communicate(texto, VOZ, rate=VELOCIDAD)
+        comunicar = edge_tts.Communicate(texto, voz, rate=VELOCIDAD)
     palabras = []
     with open(archivo, "wb") as f:
         async for trozo in comunicar.stream():

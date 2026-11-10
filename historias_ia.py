@@ -13,7 +13,8 @@ import requests
 
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL") or "gemini-flash-latest"
 # Si el principal está saturado, se prueban estos en orden
-MODELOS = [GEMINI_MODEL, "gemini-flash-lite-latest", "gemini-2.5-flash"]
+MODELOS = [GEMINI_MODEL, "gemini-flash-lite-latest", "gemini-2.5-flash", "gemini-2.5-flash-lite",
+           "gemini-2.0-flash"]
 HISTORIAS_POR_TANDA = 15
 LIMITE_SEGUNDOS = 12 * 60
 
@@ -79,9 +80,10 @@ Texto original:
 {historia}
 
 Devuelve solo un array JSON con {n} strings, una parte por elemento, en orden."""
-    partes = [" ".join(str(p).split()) for p in json.loads(_pedir(api_key, instrucciones, 5 * 60, 0.7,
+    partes = [" ".join(str(p).split()) for p in json.loads(_pedir(api_key, instrucciones, 8 * 60, 0.7,
                                                                          espera_maxima=100, intentos=2))]
-    if len(partes) != n or not all(300 <= len(p) <= 650 for p in partes):
+    # A veces devuelve una parte menos: una serie de 3 o 4 partes también vale
+    if not 3 <= len(partes) <= n or not all(300 <= len(p) <= 650 for p in partes):
         raise ValueError(f"la serie no salió bien: {len(partes)} partes, tamaños {[len(p) for p in partes]}")
     return partes
 

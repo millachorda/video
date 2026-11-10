@@ -4,9 +4,8 @@ on:
   schedule:
     # Minutos poco habituales: GitHub retrasa mucho las tareas programadas en punto
     # 5 al día = las 5 partes de un caso; tras la última se publica también el caso completo
-    - cron: '37 7,10,13,16,19 * * *'  # CurioMind: ~8:37, 11:37, 14:37, 17:37 y 20:37 en España (invierno)
-    # Canales nuevos (¿Y Si…? y De Cero a Millón): también 5 al día, una serie de 5 partes diaria
-    - cron: '7 9,12,15,18,21 * * *'   # ~10:07, 13:07, 16:07, 19:07 y 22:07 en España (invierno)
+    # Cada hora: horario.py decide a qué canales les toca (5 horas aleatorias al día por canal)
+    - cron: '11 * * * *'
   workflow_dispatch:
     inputs:
       canal:
@@ -32,23 +31,27 @@ jobs:
     outputs:
       canales: ${{ steps.c.outputs.canales }}
     steps:
+    - uses: actions/checkout@v5
+      with:
+        ref: main
     - id: c
       env:
-        PROGRAMA: ${{ github.event.schedule }}
         ELEGIDO: ${{ inputs.canal }}
       run: |
         case "${ELEGIDO:-}" in
           todos) c='["curiomind","ysi","decero"]' ;;
           nuevos) c='["ysi","decero"]' ;;
-          "") if [ "$PROGRAMA" = "7 9,12,15,18,21 * * *" ]; then c='["ysi","decero"]'; else c='["curiomind"]'; fi ;;
+          "") python3 horario.py ver; c=$(python3 horario.py) ;;
           *) c="[\"$ELEGIDO\"]" ;;
         esac
+        echo "A publicar: $c"
         echo "canales=$c" >> "$GITHUB_OUTPUT"
 
   build-and-render:
     needs: elegir
+    if: needs.elegir.outputs.canales != '[]'
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 100
     strategy:
       fail-fast: false
       matrix:
@@ -58,6 +61,10 @@ jobs:
       group: episodio-${{ matrix.canal }}
       cancel-in-progress: false
     steps:
+    - name: 0. Esperar unos minutos al azar (para que la hora no sea siempre la misma)
+      if: github.event_name == 'schedule'
+      run: sleep $((RANDOM % 2700))
+
     - name: 1. Descargar los archivos del repositorio
       uses: actions/checkout@v5
       with:
@@ -93,6 +100,7 @@ jobs:
         YT_REFRESH_TOKEN_YSI: ${{ secrets.YT_REFRESH_TOKEN_YSI }}
         YT_REFRESH_TOKEN_DECERO: ${{ secrets.YT_REFRESH_TOKEN_DECERO }}
         CANAL: ${{ matrix.canal }}
+        PROGRAMADO: ${{ github.event_name == 'schedule' }}
         TIKTOK_CLIENT_KEY: ${{ secrets.TIKTOK_CLIENT_KEY }}
         TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}
         TIKTOK_REFRESH_TOKEN: ${{ secrets.TIKTOK_REFRESH_TOKEN }}
@@ -109,7 +117,7 @@ jobs:
       run: |
         git config --global user.name "GitHub Action Bot"
         git config --global user.email "actions@github.com"
-        git add contador.txt historias.txt casos_publicados.txt partes.json canales
+        git add contador.txt historias.txt casos_publicados.txt partes.json hoy.txt canales
         git diff --staged --quiet && exit 0
         git commit -m "🤖 Bot (${{ matrix.canal }}): episodio procesado"
         # Varios canales pueden guardar a la vez: si el push choca, se reintenta

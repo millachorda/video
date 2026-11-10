@@ -1,17 +1,26 @@
-name: Probar vídeo completo del caso
+name: Vídeo completo del caso
 
-# Se lanza a mano: monta el vídeo completo con las partes guardadas, sin publicarlo
+# Se lanza a mano: monta el vídeo completo con las partes guardadas y, si se pide, lo publica
 on:
   workflow_dispatch:
     inputs:
       caso:
         description: 'Título del caso (tal cual aparece en partes.json)'
         required: true
+      publicar:
+        description: 'Publicarlo en YouTube (si no, solo se monta)'
+        type: boolean
+        default: false
+      canal:
+        description: 'Canal (curiomind, ysi, decero)'
+        default: curiomind
 
 jobs:
   probar:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    permissions:
+      contents: write
     steps:
     - uses: actions/checkout@v5
       with:
@@ -24,6 +33,20 @@ jobs:
         sudo apt-get install -y ffmpeg fonts-liberation
     - run: pip install edge-tts pillow google-api-python-client google-auth
     - env:
-        PRUEBA: 'true'
+        PRUEBA: ${{ !inputs.publicar }}
+        CANAL: ${{ inputs.canal }}
+        VOZ: ${{ vars.VOZ }}
         GH_TOKEN: ${{ github.token }}
+        YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+        YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+        YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+        YT_REFRESH_TOKEN_YSI: ${{ secrets.YT_REFRESH_TOKEN_YSI }}
+        YT_REFRESH_TOKEN_DECERO: ${{ secrets.YT_REFRESH_TOKEN_DECERO }}
       run: python -u recopilacion.py "${{ inputs.caso }}"
+    - name: Guardar la lista de partes (ya sin las del caso publicado)
+      if: inputs.publicar
+      run: |
+        git config --global user.name "GitHub Action Bot"
+        git config --global user.email "actions@github.com"
+        git add partes.json canales
+        git diff --staged --quiet || (git commit -m "🤖 Caso completo publicado" && git pull --rebase && git push)
