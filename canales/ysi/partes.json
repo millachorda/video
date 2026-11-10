@@ -12,5 +12,12 @@
   "parte": 2,
   "total": 5,
   "archivo": "Episodio_2.mp4"
+ },
+ {
+  "episodio": 3,
+  "caso": "¿Sobrevivirías a un viento de mil seiscientos kilómetros por hora?",
+  "parte": 3,
+  "total": 5,
+  "archivo": "Episodio_3.mp4"
  }
 ]
