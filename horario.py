@@ -53,8 +53,9 @@ def toca(canal, archivo):
 def apuntar(archivo):
     """Suma un vídeo publicado hoy."""
     hoy = ahora().date()
+    total = publicados_hoy(archivo, hoy) + 1  # Leer antes de abrir para escribir (eso vacía el archivo)
     with open(archivo, "w", encoding="utf-8") as f:
-        f.write(f"{hoy} {publicados_hoy(archivo, hoy) + 1}\n")
+        f.write(f"{hoy} {total}\n")
 
 
 if __name__ == "__main__":

@@ -142,9 +142,15 @@ def publicar_caso(caso, publicar=True):
         trozos.append(archivo)
         t += duracion(archivo)
 
-    asyncio.run(edge_tts.Communicate(
-        TEXTOS["intro"].format(caso=caso), VOZ,
-    ).save(f"{CARPETA}/intro.mp3"))
+    # Si la voz no devuelve audio (le pasa a veces a la multilingüe), se prueba con otras
+    for voz in [VOZ, "en-US-BrianMultilingualNeural", "es-ES-AlvaroNeural"]:
+        try:
+            asyncio.run(edge_tts.Communicate(TEXTOS["intro"].format(caso=caso), voz).save(f"{CARPETA}/intro.mp3"))
+            break
+        except edge_tts.exceptions.NoAudioReceived as e:
+            print(f"Aviso: la voz {voz} no respondió ({e}); pruebo con otra...")
+    else:
+        raise RuntimeError("ninguna voz respondió para la introducción")
     tarjeta(TEXTOS["etiqueta"], caso, f"{CARPETA}/intro.png")
     tarjeta_a_video(f"{CARPETA}/intro.png", duracion(f"{CARPETA}/intro.mp3") + 0.6,
                     f"{CARPETA}/00_intro.mp4", audio=f"{CARPETA}/intro.mp3")
