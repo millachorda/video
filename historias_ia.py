@@ -70,10 +70,15 @@ def dividir_en_partes(api_key, historia, n):
 Escríbelo como {n} partes en español de España, en tercera persona, cada una en un solo párrafo
 de entre 380 y 480 caracteres (unos 30 segundos narrada):
 - Parte 1: lo presenta con una primera frase que impacte y corta en el momento más intrigante.
-- Partes intermedias: empiezan recordando en una frase dónde se quedó la anterior, avanzan con cosas
-  nuevas ({avance}) y acaban en suspense.
+- Partes intermedias: avanzan con cosas nuevas ({avance}) y acaban en suspense.
 - Última parte: {final} y termina con una pregunta abierta para que la gente comente.
-- Ninguna parte debe repetir lo que ya contó otra, salvo la frase de enlace.
+- MUY IMPORTANTE: cada parte tiene que entenderse sola, porque en Shorts la mayoría de la gente
+  verá solo esa parte sin haber visto las anteriores. Por eso, de la parte 2 en adelante:
+  * La primera frase es un dato nuevo y fuerte de esa parte, que enganche por sí solo.
+    Nunca empieces con "como vimos", "en la parte anterior", "seguimos", "continuamos" ni similares.
+  * La segunda frase sitúa en pocas palabras de qué va la historia (quién, dónde, qué pasó),
+    para que quien llega de nuevas no se pierda.
+- Aparte de esa frase de contexto, ninguna parte debe repetir lo que ya contó otra.
 {reglas} Sin títulos, sin emojis y sin saltos de línea.
 
 Estilo (muy importante para que la gente no deslice):
