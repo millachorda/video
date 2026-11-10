@@ -5,5 +5,12 @@
   "parte": 1,
   "total": 5,
   "archivo": "Episodio_2.mp4"
+ },
+ {
+  "episodio": 3,
+  "caso": "Dejó la universidad y montó un ordenador en 1976",
+  "parte": 2,
+  "total": 5,
+  "archivo": "Episodio_3.mp4"
  }
 ]
