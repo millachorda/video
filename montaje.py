@@ -25,7 +25,7 @@ ANCHO, ALTO = 1080, 1920
 FPS = 30
 VOZ = os.environ.get("VOZ") or "es-ES-AlvaroNeural"
 VELOCIDAD = "+10%"         # Más rápido que la voz normal: en Shorts el ritmo retiene
-DURACION_PLANO = (2.8, 4.2)  # Cortes frecuentes para que no se haga monótono
+DURACION_PLANO = (2.0, 3.2)  # Cortes muy frecuentes: en Shorts, lo que no se mueve se desliza
 CIERRE = 1.8                 # Segundos de cierre al final, ya sin voz (corto: el silencio hace deslizar)
 GOLPE = 0.25                 # Duración del golpe de zoom al empezar cada plano
 AMARILLO = (255, 222, 0)
@@ -308,6 +308,35 @@ def subtitulos_palabra_a_palabra(palabras, ruta_fuente, palabras_por_grupo=3):
     return clips
 
 
+def momentos_fuertes(palabras, separacion=1.0):
+    """Instantes en que la voz dice una cifra o una palabra fuerte (las que salen en rojo)."""
+    momentos = []
+    for inicio, _, texto in palabras:
+        limpia = texto.strip("¿?¡!.,;:«»\"'").upper()
+        if (any(c.isdigit() for c in limpia) or limpia in PALABRAS_CLAVE) and \
+                (not momentos or inicio - momentos[-1] >= separacion):
+            momentos.append(inicio)
+    return momentos
+
+
+def golpes_de_zoom(clip, momentos, fuerza=0.07, dura=0.35):
+    """Acerca la imagen de golpe y la suelta en 0,35 s en cada momento fuerte: el vídeo 'late' con la voz."""
+    import bisect
+
+    def efecto(get_frame, t):
+        cuadro = get_frame(t)
+        k = bisect.bisect_right(momentos, t) - 1
+        if k < 0 or t - momentos[k] > dura:
+            return cuadro
+        z = 1 + fuerza * (1 - (t - momentos[k]) / dura) ** 2
+        alto, ancho = cuadro.shape[:2]
+        w, h = int(ancho / z), int(alto / z)
+        x, y = (ancho - w) // 2, (alto - h) // 2
+        return np.array(Image.fromarray(cuadro[y:y + h, x:x + w]).resize((ancho, alto), Image.BILINEAR))
+
+    return clip.fl(efecto)
+
+
 def destellos(cortes):
     """Destello blanco muy breve en cada cambio de plano."""
     blanco = np.full((ALTO, ANCHO, 3), 255, dtype=np.uint8)
@@ -397,6 +426,8 @@ def montar(historia, gancho_texto, parte, total, archivo_voz, palabras, planos, 
     musica = AudioArrayClip(sonido.banda_sonora(duracion, palabras, cortes, fin_gancho, voz.duration,
                                                 CANAL["musica"]),
                             fps=sonido.FS)
+    # Golpes de zoom sincronizados con las cifras y palabras fuertes de la narración
+    fondo = golpes_de_zoom(fondo, momentos_fuertes(palabras[n_gancho:]))
     fondo = etalonar(fondo).set_audio(CompositeAudioClip([musica, voz]).set_duration(duracion))
 
     capas = ([fondo] + destellos(cortes)

@@ -26,8 +26,8 @@ def _cliente():
     return build("youtube", "v3", credentials=credenciales, cache_discovery=False)
 
 
-def subir(archivo, titulo, descripcion, etiquetas, short=True, categoria="24"):
-    """Sube el vídeo en público y devuelve (id, enlace)."""
+def subir(archivo, titulo, descripcion, etiquetas, short=True, categoria="24", privacidad="public"):
+    """Sube el vídeo (público por defecto; "unlisted" = oculto, para pruebas) y devuelve (id, enlace)."""
     youtube = _cliente()
     cuerpo = {
         "snippet": {
@@ -37,7 +37,7 @@ def subir(archivo, titulo, descripcion, etiquetas, short=True, categoria="24"):
             "categoryId": categoria,  # 24 Entretenimiento, 27 Educación, 28 Ciencia
         },
         "status": {
-            "privacyStatus": "public",
+            "privacyStatus": privacidad,
             "selfDeclaredMadeForKids": False,
             "containsSyntheticMedia": True,  # Voz generada por IA
         },

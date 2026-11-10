@@ -252,6 +252,10 @@ async def main():
         print("[6/7] Subiendo el vídeo a YouTube Shorts...")
         try:
             descripcion = (f"{CANAL['aviso']}\n\n" if CANAL.get("aviso") else "") + f"{historia_actual[:300]}...\n\n"
+            if os.path.exists(ruta("ultimo_largo.txt")):
+                ultimo_largo = open(ruta("ultimo_largo.txt"), encoding="utf-8").read().strip()
+                if ultimo_largo:
+                    descripcion += f"📺 Vídeo completo de 10 minutos: {ultimo_largo}\n\n"
             if enlace_anterior:
                 descripcion += f"⏪ Parte anterior: {enlace_anterior}\n\n"
             _, enlace = youtube.subir(archivo_final_mp4, f"{titulo[:91]} #Shorts", descripcion + hashtags,

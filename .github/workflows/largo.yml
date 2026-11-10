@@ -1,0 +1,98 @@
+name: Vídeo largo semanal
+
+on:
+  schedule:
+    # Domingos ~10:23 en España (invierno). Los canales van uno detrás de otro.
+    - cron: '23 9 * * 0'
+  workflow_dispatch:
+    inputs:
+      canal:
+        description: 'Canal'
+        type: choice
+        options: [curiomind, ysi, decero, relatos, datos, todos]
+        default: curiomind
+      prueba:
+        description: 'Prueba: se sube como OCULTO para revisarlo (y no se apunta el tema)'
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+jobs:
+  elegir:
+    runs-on: ubuntu-24.04
+    outputs:
+      canales: ${{ steps.c.outputs.canales }}
+    steps:
+    - id: c
+      env:
+        ELEGIDO: ${{ inputs.canal }}
+      run: |
+        case "${ELEGIDO:-todos}" in
+          todos) c='["curiomind","ysi","decero","relatos","datos"]' ;;
+          *) c="[\"$ELEGIDO\"]" ;;
+        esac
+        echo "canales=$c" >> "$GITHUB_OUTPUT"
+
+  largo:
+    needs: elegir
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      max-parallel: 1   # Uno detrás de otro: Pexels limita las búsquedas por hora
+      matrix:
+        canal: ${{ fromJSON(needs.elegir.outputs.canales) }}
+    concurrency:
+      group: largo-${{ matrix.canal }}
+      cancel-in-progress: false
+    steps:
+    - uses: actions/checkout@v5
+      with:
+        ref: main
+    - uses: actions/setup-python@v6
+      with:
+        python-version: '3.10'
+    - name: Librerías
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y ffmpeg fonts-liberation
+        pip install "moviepy==1.0.3" "pillow==9.5.0" edge-tts requests python-telegram-bot google-api-python-client google-auth scipy
+    - name: Hacer y subir el vídeo largo
+      env:
+        CANAL: ${{ matrix.canal }}
+        PRUEBA: ${{ github.event_name == 'workflow_dispatch' && inputs.prueba }}
+        PROGRAMADO: ${{ github.event_name == 'schedule' }}
+        PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        VOZ: ${{ vars.VOZ }}
+        YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+        YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+        YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+        YT_REFRESH_TOKEN_YSI: ${{ secrets.YT_REFRESH_TOKEN_YSI }}
+        YT_REFRESH_TOKEN_DECERO: ${{ secrets.YT_REFRESH_TOKEN_DECERO }}
+        YT_REFRESH_TOKEN_RELATOS: ${{ secrets.YT_REFRESH_TOKEN_RELATOS }}
+        YT_REFRESH_TOKEN_DATOS: ${{ secrets.YT_REFRESH_TOKEN_DATOS }}
+      run: python -u largo.py
+    - name: Guardar el vídeo de prueba como artefacto
+      if: always() && github.event_name == 'workflow_dispatch' && inputs.prueba
+      uses: actions/upload-artifact@v4
+      with:
+        name: largo-${{ matrix.canal }}
+        path: |
+          largo/final.mp4
+          largo/miniatura.png
+        retention-days: 3
+        if-no-files-found: ignore
+    - name: Guardar el tema (para no repetirlo)
+      run: |
+        git config --global user.name "GitHub Action Bot"
+        git config --global user.email "actions@github.com"
+        git add largos.txt ultimo_largo.txt canales 2>/dev/null || true
+        git diff --staged --quiet && exit 0
+        git commit -m "🤖 Vídeo largo (${{ matrix.canal }})"
+        for i in 1 2 3 4 5; do git pull --rebase && git push && exit 0; sleep $((RANDOM % 10 + 5)); done
+        exit 1
