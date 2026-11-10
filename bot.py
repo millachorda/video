@@ -153,8 +153,16 @@ async def main():
     if (not os.path.exists(HISTORIAS) or not open(HISTORIAS, encoding="utf-8-sig").read().strip()) and GEMINI_API_KEY:
         # Canal recién creado: Gemini escribe la primera tanda de historias
         print("No hay historias: pidiendo la primera tanda a Gemini...")
+        primeras = []
+        for intento in range(3):  # Si la tanda sale vacía (todas descartadas), se vuelve a pedir
+            try:
+                primeras = generar_historias(GEMINI_API_KEY, [], CANAL["encargo_historias"])
+            except Exception as e:
+                print(f"AVISO: Gemini falló al escribir la primera tanda: {e}")
+            if primeras:
+                break
         with open(HISTORIAS, "w", encoding="utf-8") as f:
-            f.writelines(h + "\n" for h in generar_historias(GEMINI_API_KEY, [], CANAL["encargo_historias"]))
+            f.writelines(h + "\n" for h in primeras)
     if not os.path.exists(HISTORIAS) or os.stat(HISTORIAS).st_size == 0:
         print("ERROR: El archivo historias.txt está vacío o no existe.")
         sys.exit(1)

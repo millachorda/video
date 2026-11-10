@@ -121,7 +121,11 @@ Devuelve solo un array JSON de strings, una historia por elemento."""
     texto = _pedir(api_key, instrucciones, LIMITE_SEGUNDOS, 0.9)
     historias = [" ".join(h.split()) for h in json.loads(texto) if isinstance(h, str)]
     # Descarta las que se salgan mucho del tamaño: los subtítulos y la duración dependen de ello
-    return [h for h in historias if 330 <= len(h) <= 650]
+    validas = [h for h in historias if 300 <= len(h) <= 750]
+    if len(validas) < len(historias):
+        print(f"Gemini: se descartan {len(historias) - len(validas)} de {len(historias)} por tamaño "
+              f"({sorted(len(h) for h in historias if h not in validas)} caracteres)")
+    return validas
 
 
 if __name__ == "__main__":
