@@ -12,7 +12,7 @@ on:
         type: boolean
         default: false
       canal:
-        description: 'Canal (curiomind, ysi, decero)'
+        description: 'Canal (curiomind, ysi, decero, relatos, datos)'
         default: curiomind
 
 jobs:
@@ -42,6 +42,8 @@ jobs:
         YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
         YT_REFRESH_TOKEN_YSI: ${{ secrets.YT_REFRESH_TOKEN_YSI }}
         YT_REFRESH_TOKEN_DECERO: ${{ secrets.YT_REFRESH_TOKEN_DECERO }}
+        YT_REFRESH_TOKEN_RELATOS: ${{ secrets.YT_REFRESH_TOKEN_RELATOS }}
+        YT_REFRESH_TOKEN_DATOS: ${{ secrets.YT_REFRESH_TOKEN_DATOS }}
       run: python -u recopilacion.py "${{ inputs.caso }}"
     - name: Guardar la lista de partes (ya sin las del caso publicado)
       if: inputs.publicar

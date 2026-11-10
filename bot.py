@@ -142,6 +142,9 @@ async def main():
     if PROGRAMADO and not horario.toca(ID, HOY):
         print("Ahora no le toca a este canal (otra ejecución ya publicó este vídeo).")
         return
+    if PROGRAMADO and not youtube.configurado():
+        print("Este canal aún no está conectado a YouTube: no se hace nada.")
+        return
     if not os.path.exists(CONTADOR):
         with open(CONTADOR, "w") as f:
             f.write("1")
@@ -241,7 +244,7 @@ async def main():
     if youtube.configurado() and not PRUEBA:
         print("[6/7] Subiendo el vídeo a YouTube Shorts...")
         try:
-            descripcion = f"{historia_actual[:300]}...\n\n"
+            descripcion = (f"{CANAL['aviso']}\n\n" if CANAL.get("aviso") else "") + f"{historia_actual[:300]}...\n\n"
             if enlace_anterior:
                 descripcion += f"⏪ Parte anterior: {enlace_anterior}\n\n"
             _, enlace = youtube.subir(archivo_final_mp4, f"{titulo[:91]} #Shorts", descripcion + hashtags,

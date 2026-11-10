@@ -76,6 +76,13 @@ de entre 380 y 480 caracteres (unos 30 segundos narrada):
 - Ninguna parte debe repetir lo que ya contó otra, salvo la frase de enlace.
 {reglas} Sin títulos, sin emojis y sin saltos de línea.
 
+Estilo (muy importante para que la gente no deslice):
+- Frases cortas, de menos de 15 palabras, como se habla, no como se escribe.
+- Datos concretos (nombres, lugares, fechas, cifras) en vez de adjetivos vagos.
+- Un bucle abierto: a mitad del texto adelanta algo que solo se explica al final ("pero lo más raro aún no lo has oído").
+- Nada de introducciones ni de "en este vídeo": la primera palabra ya cuenta la historia.
+
+
 Texto original:
 {historia}
 
@@ -97,6 +104,10 @@ def generar_historias(api_key, casos_a_evitar, encargo=None):
     instrucciones = f"""Escribe {HISTORIAS_POR_TANDA} {encargo}
 - En español de España, en un solo párrafo de entre 400 y 480 caracteres (unos 30 segundos narrada).
 - Sin títulos, sin emojis, sin comillas tipográficas raras y sin saltos de línea dentro de cada historia.
+- Frases cortas, de menos de 15 palabras, como se habla, no como se escribe.
+- Datos concretos (nombres, lugares, fechas, cifras) en vez de adjetivos vagos.
+- Un bucle abierto: a mitad del texto adelanta algo que solo se explica al final ("pero lo más raro aún no lo has oído").
+- Nada de introducciones ni de "en este vídeo": la primera palabra ya cuenta la historia.
 - No repitas ninguno de estos temas, que ya están publicados o en cola:
 {lista_evitar}
 

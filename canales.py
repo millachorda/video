@@ -142,6 +142,95 @@ Reglas:
 - Cuenta la historia, no des consejos de inversión ni prometas dinero fácil.
 - La primera frase tiene que impactar por sí sola (un contraste, una cifra, un fracaso), cuenta los momentos clave y termina con una pregunta al espectador.""",
     },
+    "relatos": {
+        "nombre": "Relatos de Medianoche",
+        "carpeta": "canales/relatos",
+        "secret_youtube": "YT_REFRESH_TOKEN_RELATOS",
+        "tiktok": False,
+        "partes": None,
+        "release": "partes-relatos",
+        "aviso": "Relato de ficción: personajes y hechos inventados.",
+        "serie": ("Este relato de terror y suspense de ficción", "la tensión que crece, pistas inquietantes y "
+                  "giros", "revela el giro final",
+                  "Es ficción original: inventa personajes y escenas, pero no uses nombres de personas reales "
+                  "ni presentes hechos reales como ciertos. Nada de violencia explícita ni gore: el miedo viene "
+                  "de lo que se insinúa."),
+        "completo": {"etiqueta": "RELATO COMPLETO", "titulo": "{caso} | Relato completo",
+                     "intro": "Este es el relato completo. {caso}. Apaga la luz y escucha hasta el final.",
+                     "fin": ("¿QUÉ HABRÍAS HECHO TÚ?", "Coméntalo y suscríbete: cada noche un relato nuevo"),
+                     "descripcion": "{caso}: el relato completo, con todas sus partes seguidas.\n"
+                                    "Relato de ficción: personajes y hechos inventados.",
+                     "hashtags": "#relatos #historiasdeterror #creepypasta #ficcion",
+                     "etiquetas": ["Relatos", "HistoriasDeTerror", "Creepypasta", "Ficcion"]},
+        "etiqueta": "RELATO DE FICCIÓN",
+        "color_etiqueta": (120, 40, 200),
+        "musica": "misterio",
+        "oscuro": True,
+        "categoria": "24",
+        "tema": "relato corto de terror y suspense de ficción",
+        "ejemplos_gancho": "'Mi vecino lleva tres días sin parpadear', "
+                           "'Las 3:33 y alguien llama desde mi móvil'",
+        "ganchos_genericos": ["Esto empezó una noche normal.", "Nunca debí abrir esa puerta.",
+                              "Escucha esto antes de dormir."],
+        "estilo_busquedas": "nocturnos, oscuros e inquietantes",
+        "busquedas_genericas": ["dark hallway night", "old house night", "flickering light", "foggy forest night",
+                                "full moon clouds", "empty street night", "door opening dark", "rain window night"],
+        "palabras_clave": ["NADIE", "NUNCA", "JAMÁS", "MUERTO", "SANGRE", "OSCURIDAD", "PUERTA", "SOMBRA", "GRITO",
+                           "MEDIANOCHE", "SOLO", "SOLA", "DETRÁS", "SILENCIO", "ALGUIEN"],
+        "cierre": [("¿QUÉ HABRÍAS HECHO TÚ?", True), ("COMÉNTALO", False), ("Y SÍGUEME PARA MÁS", False)],
+        "hashtags_youtube": "#relatos #historiasdeterror #creepypasta #ficcion #shorts",
+        "hashtags_tiktok": "#relatos #historiasdeterror #creepypasta #parati #fyp",
+        "etiquetas": ["Shorts", "Relatos", "HistoriasDeTerror", "Creepypasta", "Ficcion"],
+        "encargo_historias": """relatos cortos de ficción de terror y suspense para un canal de historias inventadas.
+
+Reglas:
+- Ficción original: inventa personajes y situaciones (en primera o tercera persona). No uses nombres de personas reales ni presentes hechos reales como si fueran ciertos.
+- Miedo psicológico y suspense (algo que no encaja, una presencia, una regla que no se debe romper…), sin violencia explícita ni gore.
+- La primera frase tiene que inquietar por sí sola y el final deja un giro o una pregunta inquietante.""",
+    },
+    "datos": {
+        "nombre": "Datos Imposibles",
+        "carpeta": "canales/datos",
+        "secret_youtube": "YT_REFRESH_TOKEN_DATOS",
+        "tiktok": False,
+        "partes": None,
+        "release": "partes-datos",
+        "serie": ("Este tema de curiosidades reales", "datos cada vez más sorprendentes sobre el mismo tema",
+                  "remata con el dato más increíble de todos",
+                  "Solo datos REALES y verificables (ciencia, historia, naturaleza, cuerpo humano…); no inventes "
+                  "cifras: si dudas de un dato, no lo uses."),
+        "completo": {"etiqueta": "COMPLETO", "titulo": "{caso} | Todos los datos",
+                     "intro": "Aquí tienes todos los datos seguidos. {caso}.",
+                     "fin": ("¿CUÁL NO SABÍAS?", "Coméntalo y suscríbete: cada día datos nuevos"),
+                     "descripcion": "{caso}: todas las partes seguidas.\n¿Cuál no sabías? Cuéntamelo en los "
+                                    "comentarios y suscríbete.",
+                     "hashtags": "#datoscuriosos #curiosidades #sabiasque #datos",
+                     "etiquetas": ["DatosCuriosos", "Curiosidades", "SabiasQue", "Datos"]},
+        "etiqueta": "DATO REAL",
+        "color_etiqueta": (240, 120, 0),
+        "musica": "epica",
+        "oscuro": False,
+        "categoria": "27",
+        "tema": "curiosidad real sorprendente",
+        "ejemplos_gancho": "'Tu cuerpo brilla, pero no lo puedes ver', "
+                           "'Hay más árboles en la Tierra que estrellas en la galaxia'",
+        "ganchos_genericos": ["Esto parece mentira, pero es real.", "Seguro que no sabías esto.",
+                              "La ciencia lo confirma."],
+        "estilo_busquedas": "llamativos y coloridos (naturaleza, ciencia, cuerpo humano, espacio, animales)",
+        "busquedas_genericas": ["colorful nature macro", "human eye closeup", "ocean animals", "galaxy stars",
+                                "microscope cells", "ancient ruins aerial", "wild animals", "city timelapse"],
+        "palabras_clave": ["NADIE", "NUNCA", "TODOS", "MILLONES", "MILES", "AÑOS", "REAL", "IMPOSIBLE", "MÁS",
+                           "CUERPO", "PLANETA", "CEREBRO", "SEGUNDOS", "VECES"],
+        "cierre": [("¿CUÁL NO SABÍAS?", True), ("COMÉNTALO", False), ("Y SÍGUEME PARA MÁS", False)],
+        "hashtags_youtube": "#datoscuriosos #curiosidades #sabiasque #datos #shorts",
+        "hashtags_tiktok": "#datoscuriosos #curiosidades #sabiasque #parati #fyp",
+        "etiquetas": ["Shorts", "DatosCuriosos", "Curiosidades", "SabiasQue", "Datos"],
+        "encargo_historias": """guiones para vídeos cortos de un canal de datos curiosos reales que parecen imposibles.
+
+Reglas:
+- Cada guion trata UN tema (el cuerpo humano, el pulpo, las pirámides, el sueño, la Luna…) y encadena 4 o 5 datos REALES y verificables sobre él, cada uno más sorprendente que el anterior. No inventes cifras: si dudas de un dato, no lo uses.
+- La primera frase es el dato más chocante o una pregunta irresistible y termina con una pregunta al espectador.""",
+    },
 }
 
 ID = os.environ.get("CANAL") or "curiomind"

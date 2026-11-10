@@ -103,7 +103,9 @@ def planificar(historia, api_key):
                     "chocante de la historia (una cifra, un objeto, un lugar, algo imposible), no frases genéricas. "
                     f"Ejemplos de estilo: {CANAL['ejemplos_gancho']}. Sin destripar el final y sin "
                     "inventar nada que no esté en la historia.\n"
-                    '- "busquedas": 5 búsquedas cortas en inglés (2-3 palabras) para vídeos de stock ' f"{CANAL['estilo_busquedas']} "
+                    '- "busquedas": 10 búsquedas cortas en inglés (2-3 palabras) para vídeos de stock ' f"{CANAL['estilo_busquedas']} "
+                    "EN EL MISMO ORDEN que la historia: divide el texto en 10 trozos seguidos y da una búsqueda "
+                    "que muestre lo que se cuenta en cada trozo (objetos, lugares, acciones concretas; nada abstracto), "
                     "sin personas reconocibles que ilustren la historia.\n"
                     '- "hashtags": 3 hashtags en español o con el nombre del caso, sin espacios, con #, '
                     "específicos de esta historia (lugar, nombre del caso, tema).\n\n" + historia)}]}],
@@ -114,7 +116,7 @@ def planificar(historia, api_key):
         datos = json.loads(r.json()["candidates"][0]["content"]["parts"][0]["text"])
         if isinstance(datos.get("gancho"), str) and 3 <= len(datos["gancho"].split()) <= 14:
             plan["gancho"] = datos["gancho"].strip()
-        busquedas = [b for b in datos.get("busquedas", []) if isinstance(b, str) and b.strip()][:5]
+        busquedas = [b for b in datos.get("busquedas", []) if isinstance(b, str) and b.strip()][:12]
         if busquedas:
             plan["busquedas"] = busquedas + random.sample(BUSQUEDAS_GENERICAS, 2)
         # Solo letras y números: un "_" rompería el formato del mensaje de Telegram
@@ -166,24 +168,28 @@ def plano_con_movimiento(clip, duracion):
 
 
 def descargar_planos(pexels_key, busquedas, duracion_total):
-    """Descarga clips verticales de varias búsquedas y los trocea en planos cortos."""
-    candidatos, vistos = [], set()
+    """Descarga clips verticales y los trocea en planos cortos. Las búsquedas vienen en el orden de la
+    historia: el primer resultado de cada una va en su sitio, así lo que se ve es lo que se está contando.
+    Si aún falta metraje, se rellena con el resto de resultados."""
+    principales, resto, vistos = [], [], set()
     for termino in busquedas:
         try:
             r = requests.get("https://api.pexels.com/videos/search", timeout=30,
                              headers={"Authorization": pexels_key},
-                             params={"query": termino, "orientation": "portrait", "per_page": 8})
+                             params={"query": termino, "orientation": "portrait", "per_page": 6})
             r.raise_for_status()
         except Exception as e:
             print(f"Aviso: Pexels falló con '{termino}': {e}")
             continue
-        for v in r.json().get("videos", []):
-            if v["id"] not in vistos:
-                vistos.add(v["id"])
-                candidatos.append(v)
-    if not candidatos:
+        nuevos = [v for v in r.json().get("videos", []) if v["id"] not in vistos]
+        vistos.update(v["id"] for v in nuevos)
+        if nuevos:
+            principales.append(nuevos[0])
+            resto += nuevos[1:]
+    if not principales:
         raise RuntimeError("Pexels no devolvió vídeos.")
-    random.shuffle(candidatos)
+    random.shuffle(resto)
+    candidatos = principales + resto
 
     planos, acumulado = [], 0.0
     for i, vid in enumerate(candidatos):

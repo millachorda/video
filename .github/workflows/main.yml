@@ -11,7 +11,7 @@ on:
       canal:
         description: 'Canal'
         type: choice
-        options: [auto, curiomind, ysi, decero, nuevos, todos]
+        options: [auto, curiomind, ysi, decero, relatos, datos, nuevos, todos]
         default: auto
       prueba:
         description: 'Solo generar el vídeo y mandarlo a Telegram (sin publicar ni gastar historia)'
@@ -39,8 +39,8 @@ jobs:
         ELEGIDO: ${{ inputs.canal }}
       run: |
         case "${ELEGIDO:-}" in
-          todos) c='["curiomind","ysi","decero"]' ;;
-          nuevos) c='["ysi","decero"]' ;;
+          todos) c='["curiomind","ysi","decero","relatos","datos"]' ;;
+          nuevos) c='["ysi","decero","relatos","datos"]' ;;
           ""|auto) python3 horario.py ver; c=$(python3 horario.py) ;;
           *) c="[\"$ELEGIDO\"]" ;;
         esac
@@ -99,6 +99,8 @@ jobs:
         YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
         YT_REFRESH_TOKEN_YSI: ${{ secrets.YT_REFRESH_TOKEN_YSI }}
         YT_REFRESH_TOKEN_DECERO: ${{ secrets.YT_REFRESH_TOKEN_DECERO }}
+        YT_REFRESH_TOKEN_RELATOS: ${{ secrets.YT_REFRESH_TOKEN_RELATOS }}
+        YT_REFRESH_TOKEN_DATOS: ${{ secrets.YT_REFRESH_TOKEN_DATOS }}
         CANAL: ${{ matrix.canal }}
         PROGRAMADO: ${{ github.event_name == 'schedule' || inputs.canal == 'auto' }}
         TIKTOK_CLIENT_KEY: ${{ secrets.TIKTOK_CLIENT_KEY }}
