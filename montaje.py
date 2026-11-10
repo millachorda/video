@@ -92,11 +92,10 @@ def planificar(historia, api_key):
     if not api_key:
         return plan
     try:
-        r = requests.post(
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent",
-            headers={"x-goog-api-key": api_key}, timeout=60,
-            json={
-                "contents": [{"parts": [{"text": (
+        # Con reintentos y modelos de reserva: si Gemini está saturado, el gancho y los planos
+        # genéricos empeoran mucho el vídeo
+        from historias_ia import _pedir
+        instrucciones = (
                     f"Para un vídeo corto sobre esta {CANAL['tema']}, devuelve un objeto JSON con:\n"
                     '- "gancho": una frase en español de 5 a 9 palabras que se dirá ANTES de la historia para '
                     "que nadie deslice el vídeo en el primer segundo. Tiene que llevar un dato concreto y "
@@ -108,12 +107,8 @@ def planificar(historia, api_key):
                     "que muestre lo que se cuenta en cada trozo (objetos, lugares, acciones concretas; nada abstracto), "
                     "sin personas reconocibles que ilustren la historia.\n"
                     '- "hashtags": 3 hashtags en español o con el nombre del caso, sin espacios, con #, '
-                    "específicos de esta historia (lugar, nombre del caso, tema).\n\n" + historia)}]}],
-                "generationConfig": {"responseMimeType": "application/json"},
-            },
-        )
-        r.raise_for_status()
-        datos = json.loads(r.json()["candidates"][0]["content"]["parts"][0]["text"])
+                    "específicos de esta historia (lugar, nombre del caso, tema).\n\n" + historia)
+        datos = json.loads(_pedir(api_key, instrucciones, 4 * 60, 0.8, espera_maxima=60, intentos=2))
         if isinstance(datos.get("gancho"), str) and 3 <= len(datos["gancho"].split()) <= 14:
             plan["gancho"] = datos["gancho"].strip()
         busquedas = [b for b in datos.get("busquedas", []) if isinstance(b, str) and b.strip()][:12]

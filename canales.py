@@ -188,7 +188,7 @@ Reglas:
         "encargo_historias": """guiones para vídeos cortos de un canal de datos curiosos reales que parecen imposibles.
 
 Reglas:
-- Cada guion trata UN tema (el cuerpo humano, el pulpo, las pirámides, el sueño, la Luna…) y encadena 4 o 5 datos REALES y verificables sobre él, cada uno más sorprendente que el anterior. No inventes cifras: si dudas de un dato, no lo uses.
+- Cada guion trata UN tema (el cuerpo humano, el pulpo, las pirámides, el sueño, la Luna…) y encadena 4 o 5 datos REALES y verificables sobre él, cada uno más sorprendente que el anterior. No inventes cifras: si dudas de un dato, no lo uses. Evita los mitos populares que circulan como ciertos pero son falsos o exagerados (el 10 % del cerebro, la Gran Muralla vista desde el espacio, el chorro de sangre del corazón…).
 - La primera frase es el dato más chocante o una pregunta irresistible y termina con una pregunta al espectador.""",
     },
 }
