@@ -9,7 +9,6 @@ import requests
 from telegram import Bot
 from historias_ia import generar_historias, dividir_en_partes
 import montaje
-import recopilacion
 import youtube
 import horario
 from canales import ACTUAL as CANAL, ruta
@@ -277,12 +276,6 @@ async def main():
 
     if PRUEBA:
         estados.append("🧪 Vídeo de prueba: no se ha publicado en ninguna red")
-    elif total > 1:
-        # Las partes se guardan para montar el vídeo completo del caso al acabar la serie
-        try:
-            recopilacion.guardar_parte(archivo_final_mp4, n_episodio, titulo_base, parte, total)
-        except Exception as e:
-            print(f"AVISO: no se pudo guardar la parte para el vídeo completo: {e}")
     if not estados:
         estados.append("📝 Descarga este archivo de video y súbelo a tus redes sociales.")
 
@@ -304,19 +297,6 @@ async def main():
                 write_timeout=300, read_timeout=300, connect_timeout=60,
             )
         print("¡Video enviado con éxito a tu aplicación móvil!")
-
-        if total > 1 and parte == total and not PRUEBA:
-            print("Última parte: montando y publicando el caso completo...")
-            try:
-                # En otro hilo: publicar_caso usa asyncio.run, que no funciona dentro de main()
-                enlace_completo = await asyncio.to_thread(recopilacion.publicar_caso, titulo_base)
-                if enlace_completo:
-                    await bot.send_message(chat_id=TELEGRAM_CHAT_ID,
-                                           text=f"📺 Caso completo publicado en YouTube: {enlace_completo}")
-            except Exception as e:
-                print(f"AVISO: no se pudo publicar el caso completo: {e}")
-                await bot.send_message(chat_id=TELEGRAM_CHAT_ID,
-                                       text=f"⚠️ No se pudo publicar el caso completo: {e}")
 
         casos_en_cola = [h for h in historias_restantes if not es_parte_pendiente(h)]
         if len(casos_en_cola) < AVISO_HISTORIAS_RESTANTES and GEMINI_API_KEY and not PRUEBA:

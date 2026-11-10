@@ -14,19 +14,11 @@ CANALES = {
         "secret_youtube": "YT_REFRESH_TOKEN",
         "tiktok": True,               # La cuenta de TikTok conectada es la de este canal
         "partes": None,               # None = la variable PARTES_POR_CASO (5)
-        "release": "partes",          # Donde se guardan las partes hasta montar el vídeo completo
         "serie": ("Este caso real de misterio", "la investigación, las pruebas, los testigos, las teorías…",
                   "cuenta lo que se sabe hoy",
                   "Usa SOLO hechos reales y documentados de este caso; puedes añadir detalles reales conocidos, "
                   "pero no inventes nombres, fechas, cifras ni escenas. Si no hay tantos hechos, profundiza en el "
                   "contexto histórico, la investigación y las teorías publicadas."),
-        "completo": {"etiqueta": "CASO COMPLETO", "titulo": "{caso} | El caso completo",
-                     "intro": "Este es el caso completo. {caso}. Todas las partes, de principio a fin.",
-                     "fin": ("¿TÚ QUÉ CREES?", "Comenta tu teoría y suscríbete: cada día un caso nuevo"),
-                     "descripcion": "{caso}: el caso completo, con todas sus partes seguidas.\n¿Tú qué crees "
-                                    "que pasó? Cuéntamelo en los comentarios y suscríbete: cada día un caso nuevo.",
-                     "hashtags": "#misterio #casosreales #sinresolver #enigma #casocompleto",
-                     "etiquetas": ["Misterio", "CasosReales", "SinResolver", "Enigma", "CasoCompleto"]},
         "etiqueta": "CASO SIN RESOLVER",
         "color_etiqueta": (220, 30, 45),
         "musica": "misterio",
@@ -59,18 +51,10 @@ Reglas:
         "secret_youtube": "YT_REFRESH_TOKEN_YSI",
         "tiktok": False,
         "partes": None,
-        "release": "partes-ysi",
         "serie": ("Este escenario hipotético", "las consecuencias siguientes en orden (segundos, horas, días, "
                   "años…), cada vez más extremas", "cuenta cómo quedaría todo al final",
                   "Usa ciencia real: cifras y hechos científicos conocidos; si algo es incierto, dilo así. "
                   "No inventes datos."),
-        "completo": {"etiqueta": "COMPLETO", "titulo": "{caso} | Todo lo que pasaría",
-                     "intro": "Esto es todo lo que pasaría. {caso}. Todas las partes seguidas.",
-                     "fin": ("¿TÚ QUÉ HARÍAS?", "Coméntalo y suscríbete: cada día una pregunta nueva"),
-                     "descripcion": "{caso}: todas las partes seguidas, explicado con ciencia real.\n"
-                                    "¿Tú qué harías? Cuéntamelo en los comentarios y suscríbete.",
-                     "hashtags": "#quepasariasi #ciencia #curiosidades #ysi",
-                     "etiquetas": ["QuePasariaSi", "Ciencia", "Curiosidades", "Hipotetico"]},
         "etiqueta": "¿QUÉ PASARÍA SI…?",
         "color_etiqueta": (30, 110, 230),
         "musica": "epica",
@@ -104,18 +88,10 @@ Reglas:
         "secret_youtube": "YT_REFRESH_TOKEN_DECERO",
         "tiktok": False,
         "partes": None,
-        "release": "partes-decero",
         "serie": ("Esta historia real de emprendimiento", "los primeros pasos, los fracasos, las decisiones "
                   "clave, cómo creció…", "cuenta dónde está hoy y qué se puede aprender",
                   "Usa SOLO hechos reales y documentados; no inventes nombres, fechas, cifras ni escenas. "
                   "Sin consejos de inversión."),
-        "completo": {"etiqueta": "HISTORIA COMPLETA", "titulo": "{caso} | La historia completa",
-                     "intro": "Esta es la historia completa. {caso}. Todas las partes, de principio a fin.",
-                     "fin": ("¿TÚ LO HABRÍAS HECHO?", "Coméntalo y suscríbete: cada día una historia nueva"),
-                     "descripcion": "{caso}: la historia completa, con todas sus partes seguidas.\n"
-                                    "¿Tú lo habrías hecho? Cuéntamelo en los comentarios y suscríbete.",
-                     "hashtags": "#emprender #emprendedores #negocios #historiasreales",
-                     "etiquetas": ["Emprender", "Emprendedores", "Negocios", "HistoriasReales"]},
         "etiqueta": "HISTORIA REAL",
         "color_etiqueta": (20, 160, 80),
         "musica": "epica",
@@ -148,20 +124,12 @@ Reglas:
         "secret_youtube": "YT_REFRESH_TOKEN_RELATOS",
         "tiktok": False,
         "partes": None,
-        "release": "partes-relatos",
         "aviso": "Relato de ficción: personajes y hechos inventados.",
         "serie": ("Este relato de terror y suspense de ficción", "la tensión que crece, pistas inquietantes y "
                   "giros", "revela el giro final",
                   "Es ficción original: inventa personajes y escenas, pero no uses nombres de personas reales "
                   "ni presentes hechos reales como ciertos. Nada de violencia explícita ni gore: el miedo viene "
                   "de lo que se insinúa."),
-        "completo": {"etiqueta": "RELATO COMPLETO", "titulo": "{caso} | Relato completo",
-                     "intro": "Este es el relato completo. {caso}. Apaga la luz y escucha hasta el final.",
-                     "fin": ("¿QUÉ HABRÍAS HECHO TÚ?", "Coméntalo y suscríbete: cada noche un relato nuevo"),
-                     "descripcion": "{caso}: el relato completo, con todas sus partes seguidas.\n"
-                                    "Relato de ficción: personajes y hechos inventados.",
-                     "hashtags": "#relatos #historiasdeterror #creepypasta #ficcion",
-                     "etiquetas": ["Relatos", "HistoriasDeTerror", "Creepypasta", "Ficcion"]},
         "etiqueta": "RELATO DE FICCIÓN",
         "color_etiqueta": (120, 40, 200),
         "musica": "misterio",
@@ -194,18 +162,10 @@ Reglas:
         "secret_youtube": "YT_REFRESH_TOKEN_DATOS",
         "tiktok": False,
         "partes": None,
-        "release": "partes-datos",
         "serie": ("Este tema de curiosidades reales", "datos cada vez más sorprendentes sobre el mismo tema",
                   "remata con el dato más increíble de todos",
                   "Solo datos REALES y verificables (ciencia, historia, naturaleza, cuerpo humano…); no inventes "
                   "cifras: si dudas de un dato, no lo uses."),
-        "completo": {"etiqueta": "COMPLETO", "titulo": "{caso} | Todos los datos",
-                     "intro": "Aquí tienes todos los datos seguidos. {caso}.",
-                     "fin": ("¿CUÁL NO SABÍAS?", "Coméntalo y suscríbete: cada día datos nuevos"),
-                     "descripcion": "{caso}: todas las partes seguidas.\n¿Cuál no sabías? Cuéntamelo en los "
-                                    "comentarios y suscríbete.",
-                     "hashtags": "#datoscuriosos #curiosidades #sabiasque #datos",
-                     "etiquetas": ["DatosCuriosos", "Curiosidades", "SabiasQue", "Datos"]},
         "etiqueta": "DATO REAL",
         "color_etiqueta": (240, 120, 0),
         "musica": "epica",
