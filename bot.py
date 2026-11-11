@@ -156,7 +156,9 @@ async def main():
         primeras = []
         for intento in range(3):  # Si la tanda sale vacía (todas descartadas), se vuelve a pedir
             try:
-                primeras = generar_historias(GEMINI_API_KEY, [], CANAL["encargo_historias"])
+                ya_usadas = [l.strip()[:100] for l in open(PUBLICADOS, encoding="utf-8")] \
+                    if os.path.exists(PUBLICADOS) else []
+                primeras = generar_historias(GEMINI_API_KEY, ya_usadas, CANAL["encargo_historias"])
             except Exception as e:
                 print(f"AVISO: Gemini falló al escribir la primera tanda: {e}")
             if primeras:

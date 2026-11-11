@@ -91,18 +91,20 @@ Reglas:
         "serie": ("Esta historia real de emprendimiento", "los primeros pasos, los fracasos, las decisiones "
                   "clave, cómo creció…", "cuenta dónde está hoy y qué se puede aprender",
                   "Usa SOLO hechos reales y documentados; no inventes nombres, fechas, cifras ni escenas. "
+                  "Escribe las cifras con números (43 dólares, 1.200 millones), no con letras. "
                   "Sin consejos de inversión."),
         "etiqueta": "HISTORIA REAL",
         "color_etiqueta": (20, 160, 80),
         "musica": "epica",
         "oscuro": False,
         "categoria": "27",            # Educación
-        "tema": "historia real de un emprendedor o una empresa",
-        "ejemplos_gancho": "'Le despidieron y creó una empresa de 1.000 millones', "
-                           "'Empezó vendiendo desde un garaje'",
+        "tema": "historia real de una marca o empresa muy conocida",
+        "ejemplos_gancho": "'Nike empezó con 1.200 dólares prestados', "
+                           "'Blockbuster pudo comprar Netflix por 50 millones', "
+                           "'Zara nació en una cocina de A Coruña'",
         "ganchos_genericos": ["Empezó sin nada.", "Todos le dijeron que era imposible.",
                               "Así nació una empresa gigante."],
-        "estilo_busquedas": "de negocios, ciudad, trabajo y éxito",
+        "estilo_busquedas": "de negocios, dinero, tiendas, fábricas y ciudad (lo que muestre la historia)",
         "busquedas_genericas": ["city skyline", "office work night", "money counting", "startup team",
                                 "factory production", "stock market screen", "laptop typing", "shop opening"],
         "palabras_clave": ["NADIE", "NUNCA", "TODOS", "MILLONES", "MILLÓN", "DÓLARES", "EUROS", "QUIEBRA",
@@ -111,12 +113,18 @@ Reglas:
         "hashtags_youtube": "#emprender #emprendedores #negocios #historiasreales #shorts",
         "hashtags_tiktok": "#emprender #emprendedores #negocios #parati #fyp",
         "etiquetas": ["Shorts", "Emprender", "Emprendedores", "Negocios", "HistoriasReales"],
-        "encargo_historias": """historias para vídeos cortos de un canal sobre emprendedores y empresas que empezaron desde cero.
+        "encargo_historias": """historias para vídeos cortos de un canal sobre cómo empezaron las marcas y empresas que todo el mundo conoce.
+
+Qué funciona en este canal (los datos lo demuestran):
+- Marcas que el público de España usa o conoce SÍ o SÍ: Zara, Mercadona, Chupa Chups, Mango, IKEA, Nike, Adidas y Puma, Apple, Coca-Cola, McDonald's, Netflix, Red Bull, LEGO, Starbucks, Ferrari y Lamborghini, Spotify, Amazon, Nintendo, Samsung, PlayStation, Telepizza, Primark, Rolex… Evita empresas o personas que el gran público no conoce.
+- Mezcla tres tipos: cómo empezó una marca famosa desde casi nada; el error que costó miles de millones (Blockbuster y Netflix, Kodak y la cámara digital, Nokia y el smartphone, la discográfica que rechazó a los Beatles…); y rivalidades (Adidas contra Puma, Ferrari contra Lamborghini, Coca-Cola contra Pepsi).
+- La primera frase lleva el NOMBRE DE LA MARCA y una CIFRA o un contraste brutal en las primeras 8 palabras ("Con solo 43 dólares prestados, Nike…"). Nunca empieces con el año ("En 1976…" o "En mil novecientos…"): la fecha va después.
+- Escribe las cifras con números (43 dólares, 1.200 millones, 1976), no con letras.
 
 Reglas:
-- Solo historias REALES y bien documentadas de emprendedores o empresas conocidas (cómo empezaron, el momento en que casi lo pierden todo, la decisión clave, cómo crecieron). No inventes nombres, fechas ni cifras; si dudas de un dato, no lo incluyas.
+- Solo hechos REALES y verificables, del nivel de lo que cuenta la Wikipedia: nombres, países, fechas y cifras exactos. Si no estás seguro de un dato, no lo uses; es mejor una historia más corta que un dato falso.
 - Cuenta la historia, no des consejos de inversión ni prometas dinero fácil.
-- La primera frase tiene que impactar por sí sola (un contraste, una cifra, un fracaso), cuenta los momentos clave y termina con una pregunta al espectador.""",
+- Termina con una pregunta al espectador.""",
     },
     "relatos": {
         "nombre": "Relatos de Medianoche",
