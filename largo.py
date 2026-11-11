@@ -42,7 +42,8 @@ PROGRAMADO = os.environ.get("PROGRAMADO") == "true"
 CARPETA = "largo"
 ANCHO, ALTO, FPS = 1920, 1080, 30
 MARGEN = 1.1                  # Los planos se amplían un 10 % para poder moverse (paneo lento)
-PLANO = (4.5, 7.0)            # Segundos por plano: cambia a menudo para que no se haga lento
+PLANO = (3.0, 4.5)            # Segundos por plano: cortes frecuentes para que no se haga lento
+GOLPE = 9                     # Fotogramas (~0,3 s) del golpe de zoom con que entra cada plano
 PAUSA = 0.7                   # Silencio entre bloques
 TITULO_CAPITULO = 4.0         # Segundos que se ve el título de cada capítulo
 FUENTE = "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"
@@ -103,7 +104,8 @@ Devuelve solo un objeto JSON con:
   promete lo que se va a descubrir.
 - "busquedas_intro": 4 búsquedas para la intro.
 - "capitulos": lista de 6 capítulos, cada uno con "titulo" (2 a 5 palabras), "texto" (de 200 a 260 palabras)
-  y "busquedas" (6 búsquedas).
+  "busquedas" (6 búsquedas) y "destacado" (el dato clave del capítulo en 2 a 6 palabras, con una cifra o
+  una frase fuerte, para mostrarlo en pantalla; por ejemplo "6 MUERTOS, 0 CULPABLES").
 - "cierre": de 80 a 110 palabras: conclusión, una pregunta para que comenten y una invitación a suscribirse.
 - "busquedas_cierre": 3 búsquedas para el cierre.
 Las búsquedas son para vídeos de stock {CANAL['estilo_busquedas']}: en inglés, de 2 a 3 palabras, en el mismo
@@ -190,12 +192,16 @@ def texto_a_archivo(texto, nombre):
     return ruta_txt
 
 
-def tramo(clip, d, salida, n, capitulo=None):
-    """Un plano: recorte con paneo lento, etalonaje del canal y, si empieza capítulo, su título."""
+def tramo(clip, d, salida, n, capitulo=None, destacado=None):
+    """Un plano: entra con un golpe de zoom y se mueve en paneo lento, con el etalonaje del canal; si
+    empieza capítulo, su título; si toca, un dato clave que sube desde abajo."""
     w2, h2 = int(ANCHO * MARGEN), int(ALTO * MARGEN)
-    x = f"(iw-ow)*t/{d:.3f}" if n % 2 else f"(iw-ow)*(1-t/{d:.3f})"
-    filtros = [f"scale={w2}:{h2}:force_original_aspect_ratio=increase", f"crop={w2}:{h2}",
-               f"crop={ANCHO}:{ALTO}:x='{x}':y='(ih-oh)/2'", "setsar=1", f"fps={FPS}"]
+    fotogramas = max(1, round(d * FPS))
+    avance = f"in/{fotogramas}" if n % 2 else f"(1-in/{fotogramas})"
+    zoom = f"{MARGEN}+0.12*max(0,1-in/{GOLPE})"
+    filtros = [f"scale={w2}:{h2}:force_original_aspect_ratio=increase", f"crop={w2}:{h2}", f"fps={FPS}",
+               f"zoompan=z='{zoom}':x='(iw-iw/zoom)*{avance}':y='(ih-ih/zoom)/2':d=1:"
+               f"s={ANCHO}x{ALTO}:fps={FPS}", "setsar=1"]
     filtros.append("eq=brightness=-0.05:saturation=0.85,vignette=angle=PI/5" if CANAL["oscuro"]
                    else "eq=saturation=1.1:contrast=1.04")
     if capitulo:
@@ -209,12 +215,18 @@ def tramo(clip, d, salida, n, capitulo=None):
         filtros.append(f"drawtext=fontfile={FUENTE}:textfile={texto_a_archivo(titulo.upper(), f't{n}')}:"
                        f"fontsize=96:fontcolor=white:borderw=7:bordercolor=black:x=(w-text_w)/2:y=h/2-30:"
                        f"enable='lt(t,{TITULO_CAPITULO})':{aparece}")
+    if destacado:
+        # Dato clave abajo: sube y se desvanece, en amarillo sobre fondo oscuro
+        sube = "h-260+max(0,0.35-t)*500"
+        filtros.append(f"drawtext=fontfile={FUENTE}:textfile={texto_a_archivo(destacado.upper(), f'd{n}')}:"
+                       f"fontsize=70:fontcolor=0xFFDE00:box=1:boxcolor=black@0.7:boxborderw=26:"
+                       f"x=(w-text_w)/2:y='{sube}':alpha='min(1,t/0.3,max(0,({d:.3f}-t)/0.4))'")
     inicio = random.uniform(0, max(0.0, duracion(clip) - d - 0.2))
     ffmpeg("-stream_loop", "-1", "-ss", f"{inicio:.2f}", "-i", clip, "-t", f"{d:.3f}", "-vf", ",".join(filtros),
            "-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", "21", "-pix_fmt", "yuv420p", salida)
 
 
-def montar_imagen(bloques, inicios, total):
+def montar_imagen(bloques, inicios, total, destacados=None):
     """Divide cada bloque en planos cortos, cada uno con la búsqueda que toca en ese momento."""
     os.makedirs(f"{CARPETA}/clips", exist_ok=True)
     usados, sobrantes, tramos, cortes = set(), [], [], []
@@ -238,7 +250,8 @@ def montar_imagen(bloques, inicios, total):
             salida = f"{CARPETA}/tramo_{n:03d}.mp4"
             for video in opciones[:4]:
                 try:
-                    tramo(descargar(video), d, salida, n, capitulo)
+                    dato = (destacados or {}).get(b) if planos >= 3 and j == planos // 2 else None
+                    tramo(descargar(video), d, salida, n, capitulo, dato)
                     usados.add(video["id"])
                     break
                 except Exception as e:
@@ -299,7 +312,9 @@ async def main():
     voz, inicios, total, palabras = await locucion(bloques)
     print(f"Duración: {tiempo(total)}")
     print("[3/6] Imagen (Pexels + ffmpeg)...")
-    imagen, cortes = montar_imagen(bloques, inicios, total)
+    destacados = {k: str(c["destacado"])[:40] for k, c in enumerate(datos["capitulos"], start=1)
+                  if isinstance(c.get("destacado"), str) and c["destacado"].strip()}
+    imagen, cortes = montar_imagen(bloques, inicios, total, destacados)
     print("[4/6] Música y mezcla...")
     audio = mezclar(voz, total, palabras, cortes, inicios)
     final = f"{CARPETA}/final.mp4"
