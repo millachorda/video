@@ -62,7 +62,7 @@ jobs:
       cancel-in-progress: false
     steps:
     - name: 0. Esperar unos minutos al azar (para que la hora no sea siempre la misma)
-      if: github.event_name == 'schedule'
+      if: github.event_name == 'schedule' || inputs.canal == 'auto'
       run: sleep $((RANDOM % 2700))
 
     - name: 1. Descargar los archivos del repositorio
