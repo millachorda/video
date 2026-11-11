@@ -199,7 +199,8 @@ def tramo(clip, d, salida, n, capitulo=None, destacado=None):
     fotogramas = max(1, round(d * FPS))
     avance = f"in/{fotogramas}" if n % 2 else f"(1-in/{fotogramas})"
     zoom = f"{MARGEN}+0.12*max(0,1-in/{GOLPE})"
-    filtros = [f"scale={w2}:{h2}:force_original_aspect_ratio=increase", f"crop={w2}:{h2}", f"fps={FPS}",
+    filtros = [f"tpad=stop_mode=clone:stop_duration={d:.3f}",
+               f"scale={w2}:{h2}:force_original_aspect_ratio=increase", f"crop={w2}:{h2}", f"fps={FPS}",
                f"zoompan=z='{zoom}':x='(iw-iw/zoom)*{avance}':y='(ih-ih/zoom)/2':d=1:"
                f"s={ANCHO}x{ALTO}:fps={FPS}", "setsar=1"]
     filtros.append("eq=brightness=-0.05:saturation=0.85,vignette=angle=PI/5" if CANAL["oscuro"]
@@ -222,7 +223,7 @@ def tramo(clip, d, salida, n, capitulo=None, destacado=None):
                        f"fontsize=70:fontcolor=0xFFDE00:box=1:boxcolor=black@0.7:boxborderw=26:"
                        f"x=(w-text_w)/2:y='{sube}':alpha='min(1,t/0.3,max(0,({d:.3f}-t)/0.4))'")
     inicio = random.uniform(0, max(0.0, duracion(clip) - d - 0.2))
-    ffmpeg("-stream_loop", "-1", "-ss", f"{inicio:.2f}", "-i", clip, "-t", f"{d:.3f}", "-vf", ",".join(filtros),
+    ffmpeg("-ss", f"{inicio:.2f}", "-i", clip, "-t", f"{d:.3f}", "-vf", ",".join(filtros),
            "-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", "21", "-pix_fmt", "yuv420p", salida)
 
 
@@ -255,7 +256,8 @@ def montar_imagen(bloques, inicios, total, destacados=None):
                     usados.add(video["id"])
                     break
                 except Exception as e:
-                    print(f"  Aviso: se descarta un clip: {e}")
+                    usados.add(video["id"])
+                    print(f"  Aviso: se descarta un clip: {str(e)[:150]}")
             else:
                 # Sin clip válido: un fondo del color del canal para no dejar un hueco
                 ffmpeg("-f", "lavfi", "-i", f"color=c=black:s={ANCHO}x{ALTO}:r={FPS}:d={d:.3f}",
