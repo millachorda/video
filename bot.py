@@ -227,7 +227,8 @@ async def main():
     archivo_final_mp4 = f"Episodio_{n_episodio}.mp4"
     print("[5/7] Renderizando archivo final en formato vertical...")
     montaje.montar(historia_actual, plan["gancho"], parte, total, archivo_audio, palabras, planos,
-                   ruta_fuente, archivo_final_mp4)
+                   ruta_fuente, archivo_final_mp4, rotulo=plan.get("rotulo"), pregunta=plan.get("pregunta"),
+                   etiqueta=CANAL["etiqueta"].format(n=n_episodio))
 
     tamano_mb = os.path.getsize(archivo_final_mp4) / (1024 * 1024)
     print(f"Tamaño del vídeo: {tamano_mb:.1f} MB")
@@ -245,7 +246,8 @@ async def main():
     # Título: el gancho del caso (el de la parte 1 para toda la serie), que despierta curiosidad
     if not titulo_base:
         titulo_base = sin_markdown(plan["gancho"]).rstrip(".")
-    titulo = f"{titulo_base} (Parte {parte}/{total})" if total > 1 else titulo_base
+    titulo = (f"{titulo_base} (Parte {parte}/{total})" if total > 1
+              else titulo_base[:88 - len(CANAL.get("sufijo_titulo", ""))] + CANAL.get("sufijo_titulo", ""))
     estados = []  # Una línea por red social para el mensaje de Telegram
     enlace = None
 

@@ -12,14 +12,19 @@ CANALES = {
         "nombre": "CurioMind",
         "carpeta": ".",               # El primer canal guarda sus archivos en la raíz (como siempre)
         "secret_youtube": "YT_REFRESH_TOKEN",
+        # Identidad propia: voz grave y algo más lenta, amarillo, franquicia "Expediente #N"
+        "voz": "en-US-AndrewMultilingualNeural", "velocidad": "+4%", "tono": "-2Hz",
+        "voces_reserva": ["en-US-BrianMultilingualNeural", "es-ES-AlvaroNeural"],
+        "acento": (255, 222, 0), "planos": (2.2, 3.4), "golpes": True, "destellos": True, "marcadores": None,
+        "sufijo_titulo": " (caso REAL)",
         "tiktok": True,               # La cuenta de TikTok conectada es la de este canal
-        "partes": None,               # None = la variable PARTES_POR_CASO (5)
+        "partes": 1,                  # Shorts autónomos: cada vídeo, una historia completa
         "serie": ("Este caso real de misterio", "la investigación, las pruebas, los testigos, las teorías…",
                   "cuenta lo que se sabe hoy",
                   "Usa SOLO hechos reales y documentados de este caso; puedes añadir detalles reales conocidos, "
                   "pero no inventes nombres, fechas, cifras ni escenas. Si no hay tantos hechos, profundiza en el "
                   "contexto histórico, la investigación y las teorías publicadas."),
-        "etiqueta": "CASO SIN RESOLVER",
+        "etiqueta": "EXPEDIENTE #{n}",
         "color_etiqueta": (220, 30, 45),
         "musica": "misterio",
         "oscuro": True,
@@ -49,8 +54,13 @@ Reglas:
         "nombre": "¿Y Si…?",
         "carpeta": "canales/ysi",
         "secret_youtube": "YT_REFRESH_TOKEN_YSI",
+        # Voz femenina enérgica, cian, cronómetro en pantalla ("10 MINUTOS", "3 DÍAS")
+        "voz": "en-US-AvaMultilingualNeural", "velocidad": "+8%", "tono": "+0Hz",
+        "voces_reserva": ["en-US-EmmaMultilingualNeural", "es-ES-ElviraNeural"],
+        "acento": (0, 220, 255), "planos": (2.0, 3.0), "golpes": True, "destellos": True, "marcadores": "tiempo",
+        "sufijo_titulo": "",
         "tiktok": False,
-        "partes": None,
+        "partes": 1,
         "serie": ("Este escenario hipotético", "las consecuencias siguientes en orden (segundos, horas, días, "
                   "años…), cada vez más extremas", "cuenta cómo quedaría todo al final",
                   "Usa ciencia real: cifras y hechos científicos conocidos; si algo es incierto, dilo así. "
@@ -80,14 +90,21 @@ Reglas:
 
 Reglas:
 - Cada guion plantea UNA situación hipotética llamativa (la Tierra deja de girar, un humano en Marte sin traje, desaparecen las abejas, nunca duermes, cae un rayo en el mar a tu lado…) y explica paso a paso lo que pasaría según la ciencia real. No inventes datos: usa cifras y hechos científicos conocidos; si algo es incierto, dilo así.
+- Cuéntalo como una LÍNEA DE TIEMPO que va a más, con un dato numérico en cada salto, y escribe los tiempos con números: "En 1 segundo…", "A los 10 minutos…", "Tras 3 días…", "En 100 años…" (salen en pantalla como cronómetro).
+- Da la respuesta final (cómo acaba todo) antes de terminar: el vídeo tiene que cerrarse solo.
 - La primera frase es la pregunta "¿Qué pasaría si…?" o un dato que la haga irresistible, después una progresión que vaya a más (en segundos, en horas, en días…) y termina con una pregunta al espectador.""",
     },
     "decero": {
         "nombre": "De Cero a Millón",
         "carpeta": "canales/decero",
         "secret_youtube": "YT_REFRESH_TOKEN_DECERO",
+        # Voz de narrador de negocios, verde dinero, rótulo de la marca o "MARCA A VS MARCA B"
+        "voz": "en-US-BrianMultilingualNeural", "velocidad": "+8%", "tono": "+0Hz",
+        "voces_reserva": ["en-US-AndrewMultilingualNeural", "es-ES-AlvaroNeural"],
+        "acento": (60, 230, 120), "planos": (2.0, 3.2), "golpes": True, "destellos": True, "marcadores": None,
+        "sufijo_titulo": "",
         "tiktok": False,
-        "partes": None,
+        "partes": 1,
         "serie": ("Esta historia real de emprendimiento", "los primeros pasos, los fracasos, las decisiones "
                   "clave, cómo creció…", "cuenta dónde está hoy y qué se puede aprender",
                   "Usa SOLO hechos reales y documentados; no inventes nombres, fechas, cifras ni escenas. "
@@ -130,8 +147,13 @@ Reglas:
         "nombre": "Relatos de Medianoche",
         "carpeta": "canales/relatos",
         "secret_youtube": "YT_REFRESH_TOKEN_RELATOS",
+        # Terror: voz española lenta y grave, violeta, planos largos sin golpes ni destellos (dan tensión)
+        "voz": "es-ES-AlvaroNeural", "velocidad": "-6%", "tono": "-6Hz",
+        "voces_reserva": ["en-US-AndrewMultilingualNeural", "en-US-BrianMultilingualNeural"],
+        "acento": (190, 140, 255), "planos": (3.5, 5.0), "golpes": False, "destellos": False, "marcadores": None,
+        "sufijo_titulo": "",
         "tiktok": False,
-        "partes": None,
+        "partes": 1,
         "aviso": "Relato de ficción: personajes y hechos inventados.",
         "serie": ("Este relato de terror y suspense de ficción", "la tensión que crece, pistas inquietantes y "
                   "giros", "revela el giro final",
@@ -162,14 +184,22 @@ Reglas:
 Reglas:
 - Ficción original: inventa personajes y situaciones (en primera o tercera persona). No uses nombres de personas reales ni presentes hechos reales como si fueran ciertos.
 - Miedo psicológico y suspense (algo que no encaja, una presencia, una regla que no se debe romper…), sin violencia explícita ni gore.
-- La primera frase tiene que inquietar por sí sola y el final deja un giro o una pregunta inquietante.""",
+- La primera frase tiene que inquietar por sí sola y el final deja un giro o una pregunta inquietante.
+- Ambiéntalo en sitios cotidianos (el colegio, un ascensor, un Uber, el trabajo de noche, una casa rural…).
+- Ritmo de miedo: frases cortas y pausas con puntos suspensivos ("La puerta seguía cerrada… pero el pomo giraba.") justo antes del momento más tenso.
+- Es ficción ORIGINAL: no adaptes creepypastas ni leyendas ya publicadas.""",
     },
     "datos": {
         "nombre": "Datos Imposibles",
         "carpeta": "canales/datos",
         "secret_youtube": "YT_REFRESH_TOKEN_DATOS",
+        # Voz femenina española, naranja, lista "DATO 1 / DATO 2 / DATO 3" en pantalla
+        "voz": "es-ES-ElviraNeural", "velocidad": "+10%", "tono": "+0Hz",
+        "voces_reserva": ["en-US-EmmaMultilingualNeural", "en-US-AvaMultilingualNeural"],
+        "acento": (255, 150, 0), "planos": (2.0, 3.0), "golpes": True, "destellos": True, "marcadores": "lista",
+        "sufijo_titulo": " 🤯",
         "tiktok": False,
-        "partes": None,
+        "partes": 1,
         "serie": ("Este tema de curiosidades reales", "datos cada vez más sorprendentes sobre el mismo tema",
                   "remata con el dato más increíble de todos",
                   "Solo datos REALES y verificables (ciencia, historia, naturaleza, cuerpo humano…); no inventes "
@@ -193,10 +223,10 @@ Reglas:
         "hashtags_youtube": "#datoscuriosos #curiosidades #sabiasque #datos #shorts",
         "hashtags_tiktok": "#datoscuriosos #curiosidades #sabiasque #parati #fyp",
         "etiquetas": ["Shorts", "DatosCuriosos", "Curiosidades", "SabiasQue", "Datos"],
-        "encargo_historias": """guiones para vídeos cortos de un canal de datos curiosos reales que parecen imposibles.
+        "encargo_historias": """guiones para vídeos cortos de un canal de datos curiosos reales que parecen imposibles, con el formato "3 datos sobre [tema] que parecen mentira".
 
 Reglas:
-- Cada guion trata UN tema (el cuerpo humano, el pulpo, las pirámides, el sueño, la Luna…) y encadena 4 o 5 datos REALES y verificables sobre él, cada uno más sorprendente que el anterior. No inventes cifras: si dudas de un dato, no lo uses. Evita los mitos populares que circulan como ciertos pero son falsos o exagerados (el 10 % del cerebro, la Gran Muralla vista desde el espacio, el chorro de sangre del corazón…).
+- Cada guion trata UN tema (el cuerpo humano, el pulpo, las pirámides, el sueño, la Luna…) y cuenta EXACTAMENTE 3 datos REALES y verificables sobre él, cada uno más sorprendente que el anterior. Empieza cada dato diciendo "Dato 1", "Dato 2" y "Dato 3" (con número; salen en pantalla). No inventes cifras: si dudas de un dato, no lo uses. Evita los mitos populares que circulan como ciertos pero son falsos o exagerados (el 10 % del cerebro, la Gran Muralla vista desde el espacio, el chorro de sangre del corazón…).
 - La primera frase es el dato más chocante o una pregunta irresistible y termina con una pregunta al espectador.""",
     },
 }

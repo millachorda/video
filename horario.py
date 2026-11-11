@@ -17,8 +17,8 @@ from zoneinfo import ZoneInfo
 
 ZONA = ZoneInfo("Europe/Madrid")
 PRIMERA, ULTIMA = 8, 22   # Horas posibles (España): de 8:xx a 22:xx (lo atrasado, hasta las 23:59)
-POR_DIA = 5
-SEPARACION = 2            # Horas mínimas entre dos vídeos del mismo canal
+POR_DIA = 3               # Menos y más variados: 5 casi iguales al día parecen producción en masa
+SEPARACION = 3            # Horas mínimas entre dos vídeos del mismo canal
 
 
 def ahora():

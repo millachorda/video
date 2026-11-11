@@ -2,8 +2,10 @@ name: Vídeo largo semanal
 
 on:
   schedule:
-    # Domingos ~10:23 en España (invierno). Los canales van uno detrás de otro.
+    # Domingos ~10:23 en España (invierno): todos los canales, uno detrás de otro
     - cron: '23 9 * * 0'
+    # Miércoles ~10:23: un segundo vídeo largo para los canales donde más rinde (misterio y negocios)
+    - cron: '23 9 * * 3'
   workflow_dispatch:
     inputs:
       canal:
@@ -28,8 +30,11 @@ jobs:
     - id: c
       env:
         ELEGIDO: ${{ inputs.canal }}
+        PROGRAMA: ${{ github.event.schedule }}
       run: |
+        if [ "$PROGRAMA" = "23 9 * * 3" ]; then ELEGIDO=miercoles; fi
         case "${ELEGIDO:-todos}" in
+          miercoles) c='["curiomind","decero"]' ;;
           todos) c='["curiomind","ysi","decero","relatos","datos"]' ;;
           *) c="[\"$ELEGIDO\"]" ;;
         esac

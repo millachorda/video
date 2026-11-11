@@ -23,12 +23,15 @@ from moviepy.video.fx.all import loop
 
 ANCHO, ALTO = 1080, 1920
 FPS = 30
-VOZ = os.environ.get("VOZ") or "es-ES-AlvaroNeural"
-VELOCIDAD = "+10%"         # Más rápido que la voz normal: en Shorts el ritmo retiene
-DURACION_PLANO = (2.0, 3.2)  # Cortes muy frecuentes: en Shorts, lo que no se mueve se desliza
+# Cada canal tiene su voz, su ritmo y su color: que no parezcan el mismo canal con otro nombre
+VOZ = CANAL.get("voz") or os.environ.get("VOZ") or "es-ES-AlvaroNeural"
+VELOCIDAD = CANAL.get("velocidad", "+10%")   # En Shorts el ritmo retiene; en terror, más lento
+TONO = CANAL.get("tono", "+0Hz")
+DURACION_PLANO = tuple(CANAL.get("planos", (2.0, 3.2)))  # Segundos por plano
 CIERRE = 1.8                 # Segundos de cierre al final, ya sin voz (corto: el silencio hace deslizar)
 GOLPE = 0.25                 # Duración del golpe de zoom al empezar cada plano
 AMARILLO = (255, 222, 0)
+ACENTO = tuple(CANAL.get("acento", AMARILLO))  # Color propio del canal (palabra que suena, gancho, barra…)
 ROJO = (220, 30, 45)
 
 # Si Gemini no está disponible, se combinan búsquedas genéricas del tema del canal
@@ -36,7 +39,7 @@ BUSQUEDAS_GENERICAS = CANAL["busquedas_genericas"]
 
 
 # Si la voz principal no devuelve audio (le pasa a veces a la multilingüe), se usan estas
-VOCES_RESERVA = ["en-US-BrianMultilingualNeural", "es-ES-AlvaroNeural"]
+VOCES_RESERVA = CANAL.get("voces_reserva") or ["en-US-BrianMultilingualNeural", "es-ES-AlvaroNeural"]
 
 
 async def generar_voz(texto, archivo):
@@ -55,9 +58,9 @@ async def generar_voz(texto, archivo):
 
 async def _generar_voz(texto, archivo, voz):
     try:
-        comunicar = edge_tts.Communicate(texto, voz, rate=VELOCIDAD, boundary="WordBoundary")
+        comunicar = edge_tts.Communicate(texto, voz, rate=VELOCIDAD, pitch=TONO, boundary="WordBoundary")
     except TypeError:  # Versiones antiguas de edge-tts ya dan WordBoundary por defecto
-        comunicar = edge_tts.Communicate(texto, voz, rate=VELOCIDAD)
+        comunicar = edge_tts.Communicate(texto, voz, rate=VELOCIDAD, pitch=TONO)
     palabras = []
     with open(archivo, "wb") as f:
         async for trozo in comunicar.stream():
@@ -87,7 +90,7 @@ GANCHOS_GENERICOS = CANAL["ganchos_genericos"]
 def planificar(historia, api_key):
     """Pide a Gemini un gancho hablado, búsquedas para Pexels y hashtags del caso.
     Si falla, devuelve un plan genérico para que el vídeo salga igual."""
-    plan = {"gancho": random.choice(GANCHOS_GENERICOS),
+    plan = {"gancho": random.choice(GANCHOS_GENERICOS), "rotulo": None, "pregunta": None,
             "busquedas": random.sample(BUSQUEDAS_GENERICAS, 5), "hashtags": []}
     if not api_key:
         return plan
@@ -107,7 +110,13 @@ def planificar(historia, api_key):
                     "que muestre lo que se cuenta en cada trozo (objetos, lugares, acciones concretas; nada abstracto), "
                     "sin personas reconocibles que ilustren la historia.\n"
                     '- "hashtags": 3 hashtags en español o con el nombre del caso, sin espacios, con #, '
-                    "específicos de esta historia (lugar, nombre del caso, tema).\n\n" + historia)
+                    "específicos de esta historia (lugar, nombre del caso, tema).\n"
+                    '- "rotulo": de 1 a 4 palabras en mayúsculas que digan de qué va, para un rótulo fijo arriba '
+                    "(lugar y año como 'SIBERIA, 1908', las marcas enfrentadas como 'ADIDAS VS PUMA', el tema "
+                    "como 'EL PULPO' o 'LA LUNA').\n"
+                    '- "pregunta": una pregunta concreta de 3 a 6 palabras para el final, propia de ESTA historia y '
+                    "fácil de responder en un comentario (por ejemplo '¿TÚ HABRÍAS VENDIDO?', '¿QUIÉN FUE, SEGÚN "
+                    "TÚ?', '¿CUÁL NO SABÍAS?').\n\n" + historia)
         datos = json.loads(_pedir(api_key, instrucciones, 4 * 60, 0.8, espera_maxima=60, intentos=2,
                                   modelos=MODELOS_LIGEROS))
         if isinstance(datos.get("gancho"), str) and 3 <= len(datos["gancho"].split()) <= 14:
@@ -118,6 +127,10 @@ def planificar(historia, api_key):
         # Solo letras y números: un "_" rompería el formato del mensaje de Telegram
         limpios = ["".join(c for c in h if c.isalnum()) for h in datos.get("hashtags", []) if isinstance(h, str)]
         plan["hashtags"] = ["#" + h for h in limpios if h][:3]
+        if isinstance(datos.get("rotulo"), str) and 0 < len(datos["rotulo"].split()) <= 5:
+            plan["rotulo"] = datos["rotulo"].strip().upper()[:28]
+        if isinstance(datos.get("pregunta"), str) and 2 <= len(datos["pregunta"].split()) <= 8:
+            plan["pregunta"] = datos["pregunta"].strip().upper()
     except Exception as e:
         print(f"Aviso: Gemini no dio el plan del vídeo, uso uno genérico: {e}")
     return plan
@@ -256,7 +269,7 @@ ROJO_TEXTO = (255, 70, 70)
 
 def _color_palabra(texto, activa):
     if activa:
-        return AMARILLO
+        return ACENTO
     limpia = texto.strip("¿?¡!.,;:«»\"'")
     if any(c.isdigit() for c in limpia) or limpia in PALABRAS_CLAVE:
         return ROJO_TEXTO  # Fechas, cifras y palabras fuertes destacan aunque no se estén diciendo
@@ -351,22 +364,60 @@ def _etiqueta(texto, fuente, fondo, color, alto):
     return np.array(img)
 
 
-def cabecera(parte, total, ruta_fuente, duracion):
-    """Arriba: la etiqueta del canal ('CASO SIN RESOLVER'…) y, si es una serie, 'PARTE 3/5' debajo."""
-    capas = [ImageClip(_etiqueta(CANAL["etiqueta"], ImageFont.truetype(ruta_fuente, 52),
+def cabecera(parte, total, ruta_fuente, duracion, rotulo=None, etiqueta=None):
+    """Arriba: la etiqueta del canal ('EXPEDIENTE #12'…) y debajo 'PARTE 3/5' o el rótulo del vídeo."""
+    capas = [ImageClip(_etiqueta(etiqueta or CANAL["etiqueta"], ImageFont.truetype(ruta_fuente, 52),
                                  tuple(CANAL["color_etiqueta"]) + (235,), (255, 255, 255), 90))
              .set_duration(duracion).set_position(("center", 170))]
     if total > 1:
         capas.append(ImageClip(_etiqueta(f"PARTE {parte}/{total}", ImageFont.truetype(ruta_fuente, 64),
-                                         AMARILLO + (245,), (0, 0, 0), 96))
+                                         ACENTO + (245,), (0, 0, 0), 96))
                      .set_duration(duracion).set_position(("center", 272)))
+    elif rotulo:
+        capas.append(ImageClip(_etiqueta(rotulo, ImageFont.truetype(ruta_fuente, 56), (0, 0, 0, 200), ACENTO, 90))
+                     .set_duration(duracion).set_position(("center", 272)))
+    return capas
+
+
+UNIDADES_TIEMPO = {"segundo", "segundos", "minuto", "minutos", "hora", "horas", "día", "días", "dia", "dias",
+                   "semana", "semanas", "mes", "meses", "año", "años", "siglo", "siglos", "milenio", "milenios"}
+NUMEROS = {"un": "1", "uno": "1", "una": "1", "primer": "1", "primera": "1", "primero": "1", "dos": "2",
+           "tres": "3", "cuatro": "4", "cinco": "5", "seis": "6", "siete": "7", "ocho": "8", "nueve": "9",
+           "diez": "10", "cien": "100", "mil": "1.000"}
+
+
+def marcadores(palabras, ruta_fuente):
+    """Insignias que aparecen cuando la voz las dice: cronómetro ('10 MINUTOS') o lista ('DATO 2')."""
+    tipo = CANAL.get("marcadores")
+    if not tipo:
+        return []
+    fichas = [(a, texto.strip("¿?¡!.,;:«»\"'()").lower()) for a, _, texto in palabras]
+    eventos = []
+    for i, (t, w) in enumerate(fichas):
+        numero = w if w.replace(".", "").isdigit() else NUMEROS.get(w)
+        if tipo == "tiempo" and numero:
+            for k in (1, 2):
+                if i + k < len(fichas) and fichas[i + k][1] in UNIDADES_TIEMPO:
+                    eventos.append((t, f"{numero} {fichas[i + k][1].upper()}"))
+                    break
+        elif tipo == "lista" and w == "dato" and i + 1 < len(fichas):
+            siguiente = fichas[i + 1][1]
+            n = siguiente if siguiente.isdigit() else NUMEROS.get(siguiente)
+            if n:
+                eventos.append((t, f"DATO {n}"))
+    capas = []
+    for k, (t, texto) in enumerate(eventos):
+        fin = eventos[k + 1][0] if k + 1 < len(eventos) else t + 3.0
+        d = max(0.6, min(3.0, fin - t - 0.05))
+        imagen = _etiqueta(texto, ImageFont.truetype(ruta_fuente, 72), ACENTO + (245,), (0, 0, 0), 108)
+        capas.append(ImageClip(imagen).set_start(t).set_duration(d).set_position(("center", 400)).crossfadein(0.12))
     return capas
 
 
 def gancho(texto, ruta_fuente, duracion):
     """Frase gancho enorme en el centro mientras se dice: es lo que se ve al deslizar."""
     fuente = ImageFont.truetype(ruta_fuente, 100)
-    lineas = [[(l, AMARILLO if n == 0 else (255, 255, 255))]
+    lineas = [[(l, ACENTO if n == 0 else (255, 255, 255))]
               for n, l in enumerate(textwrap.wrap(texto.upper().rstrip("."), width=15))]
     imagen = _imagen_texto(lineas, fuente, borde=9)
     alto = imagen.shape[0]
@@ -382,25 +433,30 @@ def barra_progreso(duracion):
 
     def fotograma(t):
         f = np.zeros((alto, ANCHO, 3), dtype=np.uint8)
-        f[:, :int(ANCHO * min(t / duracion, 1))] = AMARILLO
+        f[:, :int(ANCHO * min(t / duracion, 1))] = ACENTO
         return f
 
     return VideoClip(fotograma, duration=duracion).set_position((0, ALTO - alto))
 
 
-def cierre(ruta_fuente, inicio, parte, total):
-    """Final: en una serie, invita a seguir para la siguiente parte; en la última, a comentar."""
+def cierre(ruta_fuente, inicio, parte, total, pregunta=None):
+    """Final: en una serie, invita a seguir para la siguiente parte; si no, una pregunta concreta de
+    esta historia (fácil de responder en un comentario) o el cierre fijo del canal."""
     fuente = ImageFont.truetype(ruta_fuente, 80)
     if parte < total:
-        lineas = [[("CONTINUARÁ…", AMARILLO)], [("SÍGUEME PARA VER", (255, 255, 255))],
-                  [(f"LA PARTE {parte + 1}", AMARILLO)]]
+        lineas = [[("CONTINUARÁ…", ACENTO)], [("SÍGUEME PARA VER", (255, 255, 255))],
+                  [(f"LA PARTE {parte + 1}", ACENTO)]]
+    elif pregunta:
+        lineas = ([[(l, ACENTO)] for l in textwrap.wrap(pregunta, width=16)[:3]]
+                  + [[("COMÉNTALO", (255, 255, 255))], [("Y SÍGUEME PARA MÁS", (255, 255, 255))]])
     else:
-        lineas = [[(texto, AMARILLO if destacado else (255, 255, 255))] for texto, destacado in CANAL["cierre"]]
+        lineas = [[(texto, ACENTO if destacado else (255, 255, 255))] for texto, destacado in CANAL["cierre"]]
     return (ImageClip(_imagen_texto(lineas, fuente)).set_start(inicio).set_duration(CIERRE)
             .set_position(("center", "center")).crossfadein(0.3))
 
 
-def montar(historia, gancho_texto, parte, total, archivo_voz, palabras, planos, ruta_fuente, salida):
+def montar(historia, gancho_texto, parte, total, archivo_voz, palabras, planos, ruta_fuente, salida,
+           rotulo=None, pregunta=None, etiqueta=None):
     voz = AudioFileClip(archivo_voz)
     if not palabras:
         palabras = tiempos_aproximados(f"{gancho_texto} {historia}", voz.duration)
@@ -428,13 +484,16 @@ def montar(historia, gancho_texto, parte, total, archivo_voz, palabras, planos, 
                                                 CANAL["musica"]),
                             fps=sonido.FS)
     # Golpes de zoom sincronizados con las cifras y palabras fuertes de la narración
-    fondo = golpes_de_zoom(fondo, momentos_fuertes(palabras[n_gancho:]))
+    if CANAL.get("golpes", True):
+        fondo = golpes_de_zoom(fondo, momentos_fuertes(palabras[n_gancho:]))
     fondo = etalonar(fondo).set_audio(CompositeAudioClip([musica, voz]).set_duration(duracion))
 
-    capas = ([fondo] + destellos(cortes)
-             + cabecera(parte, total, ruta_fuente, duracion) + [gancho(gancho_texto, ruta_fuente, fin_gancho)]
+    capas = ([fondo] + (destellos(cortes) if CANAL.get("destellos", True) else [])
+             + cabecera(parte, total, ruta_fuente, duracion, rotulo, etiqueta)
+             + [gancho(gancho_texto, ruta_fuente, fin_gancho)]
              + subtitulos_palabra_a_palabra(palabras[n_gancho:], ruta_fuente)
-             + [cierre(ruta_fuente, voz.duration, parte, total), barra_progreso(duracion)])
+             + marcadores(palabras[n_gancho:], ruta_fuente)
+             + [cierre(ruta_fuente, voz.duration, parte, total, pregunta), barra_progreso(duracion)])
     video = CompositeVideoClip(capas, size=(ANCHO, ALTO)).set_duration(duracion)
     print(f"  {len(capas)} capas, {duracion:.1f} s; renderizando...")
     t0 = time.time()

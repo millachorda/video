@@ -283,9 +283,9 @@ def miniatura(video, texto, salida):
     img.paste((0, 0, 0), mask=sombra.filter(ImageFilter.GaussianBlur(120)))
     d = ImageDraw.Draw(img)
     etiqueta = ImageFont.truetype(FUENTE, 40)
-    ancho = d.textlength(CANAL["etiqueta"], font=etiqueta)
+    ancho = d.textlength(CANAL["etiqueta"].replace(" #{n}", ""), font=etiqueta)
     d.rectangle([40, 40, 80 + ancho, 104], fill=tuple(CANAL["color_etiqueta"]))
-    d.text((60, 48), CANAL["etiqueta"], font=etiqueta, fill=(255, 255, 255))
+    d.text((60, 48), CANAL["etiqueta"].replace(" #{n}", ""), font=etiqueta, fill=(255, 255, 255))
     lineas = textwrap.wrap(texto.upper(), width=11)[:3]
     tam = 150 if len(lineas) <= 2 else 120
     y = 720 - 60 - len(lineas) * int(tam * 1.05)
