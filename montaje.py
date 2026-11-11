@@ -94,7 +94,7 @@ def planificar(historia, api_key):
     try:
         # Con reintentos y modelos de reserva: si Gemini está saturado, el gancho y los planos
         # genéricos empeoran mucho el vídeo
-        from historias_ia import _pedir
+        from historias_ia import _pedir, MODELOS_LIGEROS
         instrucciones = (
                     f"Para un vídeo corto sobre esta {CANAL['tema']}, devuelve un objeto JSON con:\n"
                     '- "gancho": una frase en español de 5 a 9 palabras que se dirá ANTES de la historia para '
@@ -108,7 +108,8 @@ def planificar(historia, api_key):
                     "sin personas reconocibles que ilustren la historia.\n"
                     '- "hashtags": 3 hashtags en español o con el nombre del caso, sin espacios, con #, '
                     "específicos de esta historia (lugar, nombre del caso, tema).\n\n" + historia)
-        datos = json.loads(_pedir(api_key, instrucciones, 4 * 60, 0.8, espera_maxima=60, intentos=2))
+        datos = json.loads(_pedir(api_key, instrucciones, 4 * 60, 0.8, espera_maxima=60, intentos=2,
+                                  modelos=MODELOS_LIGEROS))
         if isinstance(datos.get("gancho"), str) and 3 <= len(datos["gancho"].split()) <= 14:
             plan["gancho"] = datos["gancho"].strip()
         busquedas = [b for b in datos.get("busquedas", []) if isinstance(b, str) and b.strip()][:12]

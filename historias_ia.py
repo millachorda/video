@@ -12,14 +12,16 @@ import time
 import requests
 
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL") or "gemini-flash-latest"
-# Si el principal está saturado, se prueban estos en orden
-MODELOS = [GEMINI_MODEL, "gemini-flash-lite-latest", "gemini-2.5-flash", "gemini-2.5-flash-lite",
-           "gemini-2.0-flash"]
+# Si el principal está saturado o sin cuota, se prueban estos en orden. Ojo: los nombres con versión
+# (gemini-2.5-flash…) dejan de existir con el tiempo y dan 404; los alias "-latest" siguen funcionando.
+MODELOS = [GEMINI_MODEL, "gemini-flash-lite-latest", "gemini-pro-latest"]
+# Para tareas pequeñas (gancho y búsquedas de cada Short) primero el ligero: tiene mucha más cuota diaria
+MODELOS_LIGEROS = ["gemini-flash-lite-latest", GEMINI_MODEL]
 HISTORIAS_POR_TANDA = 15
 LIMITE_SEGUNDOS = 12 * 60
 
 
-def _pedir(api_key, instrucciones, limite_segundos, temperatura, espera_maxima=360, intentos=3):
+def _pedir(api_key, instrucciones, limite_segundos, temperatura, espera_maxima=360, intentos=3, modelos=None):
     """Llama a Gemini pidiendo JSON y devuelve el texto de la respuesta."""
     # El plan gratuito a veces responde 503/429 por saturación: reintenta con esperas
     # crecientes y, si un modelo no responde, prueba con el siguiente
@@ -27,7 +29,7 @@ def _pedir(api_key, instrucciones, limite_segundos, temperatura, espera_maxima=3
     respuesta = None
     # Límite total: el bot ya ha publicado el vídeo y aún tiene que guardar el progreso
     limite = time.monotonic() + limite_segundos
-    for modelo in MODELOS:
+    for modelo in modelos or MODELOS:
         for intento in range(intentos):
             if time.monotonic() > limite:
                 errores.append("se agotó el tiempo total")
@@ -51,7 +53,9 @@ def _pedir(api_key, instrucciones, limite_segundos, temperatura, espera_maxima=3
                     respuesta = r.json()
                     break
                 errores.append(f"{modelo}: {r.status_code} {r.text[:200]}")
-                if r.status_code not in (429, 500, 503):
+                # 429 = sin cuota de ese modelo (no se arregla esperando): se pasa al siguiente.
+                # 500/503 = saturado un momento: se reintenta con espera
+                if r.status_code not in (500, 503):
                     break
             time.sleep(20 * (intento + 1))
         if respuesta:
