@@ -26,6 +26,9 @@ ESTILO = ("2D cartoon illustration for an animated explainer video, flat colors,
           "detailed background, cinematic composition, no text, no letters, no watermark")
 
 
+ESCENA_SUAVE = "the stickman stands still and thoughtful in a quiet, atmospheric place, seen from a distance"
+
+
 def configurado():
     return bool(CF_ACCOUNT_ID and CF_API_TOKEN)
 
@@ -48,7 +51,7 @@ def generar(escena, destino, intentos=3):
                     f.write(base64.b64decode(r.json()["result"]["image"]))
                 return True
             print(f"  Aviso: FLUX respondió {r.status_code}: {r.text[:200]}")
-            if r.status_code in (400, 401, 403):
+            if r.status_code in (400, 401, 403):  # Petición rechazada (filtro, token…): reintentar no sirve
                 return False  # Token o petición incorrectos: reintentar no sirve
         except requests.RequestException as e:
             print(f"  Aviso: FLUX no respondió: {e}")
@@ -62,7 +65,9 @@ def generar_todas(escenas, carpeta="ilustraciones"):
     rutas = []
     for i, escena in enumerate(escenas):
         destino = f"{carpeta}/escena_{i:02d}.jpg"
-        if generar(escena, destino):
+        # Si el filtro de contenido rechaza la escena (falsos positivos con palabras fuertes), se dibuja
+        # una versión suave que mantiene el ambiente del canal
+        if generar(escena, destino) or generar(ESCENA_SUAVE, destino):
             rutas.append(destino)
             print(f"  ilustración {i + 1}/{len(escenas)} lista")
     return rutas
