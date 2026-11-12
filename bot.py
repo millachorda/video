@@ -324,6 +324,8 @@ async def main():
             await bot.send_video(
                 chat_id=TELEGRAM_CHAT_ID, video=video_file, caption=mensaje_texto,
                 parse_mode="Markdown", supports_streaming=True,
+                # Con las medidas, Telegram lo enseña vertical a pantalla completa (si no, pequeño y con bordes)
+                width=montaje.ANCHO, height=montaje.ALTO, duration=int(duracion_voz + montaje.CIERRE),
                 write_timeout=300, read_timeout=300, connect_timeout=60,
             )
         print("¡Video enviado con éxito a tu aplicación móvil!")
