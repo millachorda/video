@@ -219,13 +219,16 @@ async def main():
     duracion_voz = palabras[-1][1] if palabras else 60
     planos = None
     # Ilustraciones propias (stickman) si Cloudflare está configurado; si no, o si fallan, vídeos de Pexels
-    if ilustraciones.configurado() and len(plan.get("escenas", [])) >= 5:
-        print(f"[3/7] Dibujando {len(plan['escenas'])} ilustraciones con FLUX...")
-        rutas = ilustraciones.generar_todas(plan["escenas"])
-        if len(rutas) >= 5:
-            planos = montaje.planos_ilustrados(rutas, duracion_voz + montaje.CIERRE)
+    if ilustraciones.configurado() and len(plan.get("escenas", [])) >= 4:
+        # Media escena de cada dos: entre ilustración e ilustración va un clip de vídeo real
+        escenas = plan["escenas"][::2]
+        print(f"[3/7] Dibujando {len(escenas)} ilustraciones con FLUX y buscando vídeos en Pexels...")
+        rutas = ilustraciones.generar_todas(escenas)
+        if len(rutas) >= 3:
+            planos = montaje.mezclar_planos(rutas, PEXELS_API_KEY, plan["busquedas"],
+                                            duracion_voz + montaje.CIERRE)
         else:
-            print("AVISO: no salieron suficientes ilustraciones; uso vídeos de Pexels.")
+            print("AVISO: no salieron suficientes ilustraciones; uso solo vídeos de Pexels.")
     if planos is None:
         print("[3/7] Buscando videos de fondo verticales en Pexels...")
         print(f"Búsquedas: {', '.join(plan['busquedas'])}")

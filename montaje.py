@@ -181,10 +181,48 @@ def plano_con_movimiento(clip, duracion):
     return plano
 
 
-def planos_ilustrados(rutas, duracion_total):
-    """Una ilustración por trozo de la historia, en orden, con paneo y golpe de zoom al entrar."""
-    d = duracion_total / len(rutas)
-    return [plano_con_movimiento(ImageClip(r).set_duration(d + 0.05), d) for r in rutas]
+DURACION_ILUSTRACION = 3.0   # Segundos que se ve cada ilustración entre clip y clip
+
+
+def mezclar_planos(rutas, pexels_key, busquedas, duracion_total):
+    """Alterna ilustraciones del stickman y clips de vídeo reales, ambos en el orden de la historia:
+    la ilustración da identidad y el vídeo da movimiento."""
+    ilustradas = [plano_con_movimiento(ImageClip(r).set_duration(DURACION_ILUSTRACION + 0.05),
+                                       DURACION_ILUSTRACION) for r in rutas]
+    falta = max(6.0, duracion_total - len(ilustradas) * DURACION_ILUSTRACION)
+    videos = descargar_planos(pexels_key, busquedas, falta)
+    planos = []
+    while ilustradas or videos:
+        if ilustradas:
+            planos.append(ilustradas.pop(0))
+        if videos:
+            planos.append(videos.pop(0))
+    return planos
+
+
+def particulas(duracion, cantidad=70, seed=None):
+    """Motas de polvo o chispas que flotan despacio por encima de todo: la imagen nunca está quieta."""
+    rng = np.random.default_rng(seed)
+    x0, y0 = rng.uniform(0, ANCHO, cantidad), rng.uniform(0, ALTO, cantidad)
+    vx, vy = rng.uniform(-18, 18, cantidad), rng.uniform(-70, -20, cantidad)
+    tam = rng.integers(3, 8, cantidad)
+    brillo = rng.uniform(0.25, 0.7, cantidad)
+    fase = rng.uniform(0, 6.3, cantidad)
+
+    def posiciones(t):
+        return ((x0 + vx * t) % ANCHO).astype(int), ((y0 + vy * t) % ALTO).astype(int)
+
+    def mascara(t):
+        m = np.zeros((ALTO, ANCHO), dtype=np.float32)
+        xs, ys = posiciones(t)
+        alfa = brillo * (0.6 + 0.4 * np.sin(2.5 * t + fase))  # Parpadean un poco
+        for x, y, s, a in zip(xs, ys, tam, alfa):
+            m[y:y + s, x:x + s] = a
+        return m
+
+    color = np.full((ALTO, ANCHO, 3), 255, dtype=np.uint8)
+    capa = VideoClip(lambda t: color, duration=duracion)
+    return capa.set_mask(VideoClip(mascara, ismask=True, duration=duracion))
 
 
 def descargar_planos(pexels_key, busquedas, duracion_total):
@@ -499,7 +537,8 @@ def montar(historia, gancho_texto, parte, total, archivo_voz, palabras, planos, 
         fondo = golpes_de_zoom(fondo, momentos_fuertes(palabras[n_gancho:]))
     fondo = etalonar(fondo).set_audio(CompositeAudioClip([musica, voz]).set_duration(duracion))
 
-    capas = ([fondo] + (destellos(cortes) if CANAL.get("destellos", True) else [])
+    capas = ([fondo] + ([particulas(duracion)] if CANAL.get("particulas") else [])
+             + (destellos(cortes) if CANAL.get("destellos", True) else [])
              + cabecera(parte, total, ruta_fuente, duracion, rotulo, etiqueta)
              + [gancho(gancho_texto, ruta_fuente, fin_gancho)]
              + subtitulos_palabra_a_palabra(palabras[n_gancho:], ruta_fuente)

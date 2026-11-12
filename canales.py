@@ -12,6 +12,7 @@ CANALES = {
         "nombre": "CurioMind",
         "carpeta": ".",               # El primer canal guarda sus archivos en la raíz (como siempre)
         "secret_youtube": "YT_REFRESH_TOKEN",
+        "particulas": True,
         "estilo_ilustracion": "dark moody palette, night or dusk light, mystery documentary atmosphere",
         # Identidad propia: voz grave y algo más lenta, amarillo, franquicia "Expediente #N"
         "voz": "en-US-AndrewMultilingualNeural", "velocidad": "+4%", "tono": "-2Hz",
@@ -55,6 +56,7 @@ Reglas:
         "nombre": "¿Y Si…?",
         "carpeta": "canales/ysi",
         "secret_youtube": "YT_REFRESH_TOKEN_YSI",
+        "particulas": True,
         "estilo_ilustracion": "bright vivid colors, epic sci-fi and nature scenes, dramatic sky",
         # Voz femenina enérgica, cian, cronómetro en pantalla ("10 MINUTOS", "3 DÍAS")
         "voz": "en-US-AvaMultilingualNeural", "velocidad": "+8%", "tono": "+0Hz",
@@ -100,6 +102,7 @@ Reglas:
         "nombre": "De Cero a Millón",
         "carpeta": "canales/decero",
         "secret_youtube": "YT_REFRESH_TOKEN_DECERO",
+        "particulas": False,
         "estilo_ilustracion": "bright clean colors, cities, shops, offices and factories, upbeat business mood",
         # Voz de narrador de negocios, verde dinero, rótulo de la marca o "MARCA A VS MARCA B"
         "voz": "en-US-BrianMultilingualNeural", "velocidad": "+8%", "tono": "+0Hz",
@@ -150,6 +153,7 @@ Reglas:
         "nombre": "Relatos de Medianoche",
         "carpeta": "canales/relatos",
         "secret_youtube": "YT_REFRESH_TOKEN_RELATOS",
+        "particulas": True,
         "estilo_ilustracion": "dark eerie palette with muted purple and blue tones, horror atmosphere, long shadows",
         # Terror: voz española lenta y grave, violeta, planos largos sin golpes ni destellos (dan tensión)
         "voz": "es-ES-AlvaroNeural", "velocidad": "-6%", "tono": "-6Hz",
@@ -197,6 +201,7 @@ Reglas:
         "nombre": "Datos Imposibles",
         "carpeta": "canales/datos",
         "secret_youtube": "YT_REFRESH_TOKEN_DATOS",
+        "particulas": False,
         "estilo_ilustracion": "bright colorful palette, fun and surprising, clear simple scenes",
         # Voz femenina española, naranja, lista "DATO 1 / DATO 2 / DATO 3" en pantalla
         "voz": "es-ES-ElviraNeural", "velocidad": "+10%", "tono": "+0Hz",
