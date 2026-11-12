@@ -16,7 +16,11 @@ import sys
 from zoneinfo import ZoneInfo
 
 ZONA = ZoneInfo("Europe/Madrid")
-PRIMERA, ULTIMA = 8, 22   # Horas posibles (España): de 8:xx a 22:xx (lo atrasado, hasta las 23:59)
+# Horas posibles (España): de 8:xx a 00:xx. La hora 24 es la medianoche: buena parte del público es de
+# Latinoamérica y ve los vídeos entre las 0:00 y las 3:00 de España (su tarde-noche)
+PRIMERA, ULTIMA = 8, 24
+NOCHE = (22, 23, 24)      # Uno de los vídeos de cada día sale siempre a una de estas horas
+CORTE = 6                 # El "día" del horario va de 6:00 a 6:00: lo de las 0:xx cuenta como el día anterior
 POR_DIA = 3               # Menos y más variados: 5 casi iguales al día parecen producción en masa
 SEPARACION = 3            # Horas mínimas entre dos vídeos del mismo canal
 
@@ -25,11 +29,20 @@ def ahora():
     return datetime.datetime.now(ZONA)
 
 
+def dia_y_hora(momento=None):
+    """Fecha y hora del horario: de 0:00 a 5:59 sigue siendo el día anterior, con horas 24 a 29."""
+    momento = momento or ahora()
+    dia = (momento - datetime.timedelta(hours=CORTE)).date()
+    hora = momento.hour + (24 if momento.hour < CORTE else 0)
+    return dia, hora
+
+
 def horas_de_hoy(canal, fecha):
     """Siempre las mismas para un canal y un día (la semilla es la fecha), distintas cada día."""
-    r = random.Random(f"{fecha}-{canal}")
+    r = random.Random(f"{fecha}-{canal}-noche")
     while True:
-        horas = sorted(r.sample(range(PRIMERA, ULTIMA + 1), POR_DIA))
+        # Los demás vídeos, repartidos por el día; uno siempre por la noche para el público de América
+        horas = sorted(r.sample(range(PRIMERA, NOCHE[0]), POR_DIA - 1) + [r.choice(NOCHE)])
         if all(b - a >= SEPARACION for a, b in zip(horas, horas[1:])):
             return horas
 
@@ -43,16 +56,16 @@ def publicados_hoy(archivo, fecha):
 
 
 def toca(canal, archivo):
-    momento = ahora()
-    if not PRIMERA <= momento.hour <= ULTIMA + 1:
-        return False  # Fuera de horario no se recupera nada: mejor perder un vídeo que publicarlo a las 3:00
-    debidos = sum(h <= momento.hour for h in horas_de_hoy(canal, momento.date()))
-    return publicados_hoy(archivo, momento.date()) < debidos
+    dia, hora = dia_y_hora()
+    if not PRIMERA <= hora <= ULTIMA + 1:
+        return False  # Fuera de horario no se recupera nada: mejor perder un vídeo que publicarlo a las 4:00
+    debidos = sum(h <= hora for h in horas_de_hoy(canal, dia))
+    return publicados_hoy(archivo, dia) < debidos
 
 
 def apuntar(archivo):
     """Suma un vídeo publicado hoy."""
-    hoy = ahora().date()
+    hoy, _ = dia_y_hora()
     total = publicados_hoy(archivo, hoy) + 1  # Leer antes de abrir para escribir (eso vacía el archivo)
     with open(archivo, "w", encoding="utf-8") as f:
         f.write(f"{hoy} {total}\n")
@@ -63,7 +76,8 @@ if __name__ == "__main__":
     from canales import CANALES
     archivo = lambda c: os.path.join(CANALES[c]["carpeta"], "hoy.txt")
     if sys.argv[1:] == ["ver"]:
+        dia, _ = dia_y_hora()
         for c in CANALES:
-            print(c, horas_de_hoy(c, ahora().date()), "publicados hoy:", publicados_hoy(archivo(c), ahora().date()))
+            print(c, [f"{h % 24}:xx" for h in horas_de_hoy(c, dia)], "publicados hoy:", publicados_hoy(archivo(c), dia))
     else:
         print(json.dumps([c for c in CANALES if toca(c, archivo(c))]))
