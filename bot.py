@@ -11,6 +11,7 @@ from historias_ia import generar_historias, dividir_en_partes
 import montaje
 import youtube
 import horario
+import ilustraciones
 from canales import ACTUAL as CANAL, ruta
 
 # ---------------------------------------------------------------
@@ -215,10 +216,20 @@ async def main():
     # -----------------------------------------------------------
     # 3. Planos de fondo de Pexels, buscados según la historia
     # -----------------------------------------------------------
-    print("[3/7] Buscando videos de fondo verticales en Pexels...")
-    print(f"Búsquedas: {', '.join(plan['busquedas'])}")
     duracion_voz = palabras[-1][1] if palabras else 60
-    planos = montaje.descargar_planos(PEXELS_API_KEY, plan["busquedas"], duracion_voz + montaje.CIERRE)
+    planos = None
+    # Ilustraciones propias (stickman) si Cloudflare está configurado; si no, o si fallan, vídeos de Pexels
+    if ilustraciones.configurado() and len(plan.get("escenas", [])) >= 5:
+        print(f"[3/7] Dibujando {len(plan['escenas'])} ilustraciones con FLUX...")
+        rutas = ilustraciones.generar_todas(plan["escenas"])
+        if len(rutas) >= 5:
+            planos = montaje.planos_ilustrados(rutas, duracion_voz + montaje.CIERRE)
+        else:
+            print("AVISO: no salieron suficientes ilustraciones; uso vídeos de Pexels.")
+    if planos is None:
+        print("[3/7] Buscando videos de fondo verticales en Pexels...")
+        print(f"Búsquedas: {', '.join(plan['busquedas'])}")
+        planos = montaje.descargar_planos(PEXELS_API_KEY, plan["busquedas"], duracion_voz + montaje.CIERRE)
 
     # -----------------------------------------------------------
     # 4-5. Montaje y renderizado

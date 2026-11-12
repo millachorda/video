@@ -90,7 +90,7 @@ GANCHOS_GENERICOS = CANAL["ganchos_genericos"]
 def planificar(historia, api_key):
     """Pide a Gemini un gancho hablado, búsquedas para Pexels y hashtags del caso.
     Si falla, devuelve un plan genérico para que el vídeo salga igual."""
-    plan = {"gancho": random.choice(GANCHOS_GENERICOS), "rotulo": None, "pregunta": None,
+    plan = {"gancho": random.choice(GANCHOS_GENERICOS), "rotulo": None, "pregunta": None, "escenas": [],
             "busquedas": random.sample(BUSQUEDAS_GENERICAS, 5), "hashtags": []}
     if not api_key:
         return plan
@@ -116,7 +116,11 @@ def planificar(historia, api_key):
                     "como 'EL PULPO' o 'LA LUNA').\n"
                     '- "pregunta": una pregunta concreta de 3 a 6 palabras para el final, propia de ESTA historia y '
                     "fácil de responder en un comentario (por ejemplo '¿TÚ HABRÍAS VENDIDO?', '¿QUIÉN FUE, SEGÚN "
-                    "TÚ?', '¿CUÁL NO SABÍAS?').\n\n" + historia)
+                    "TÚ?', '¿CUÁL NO SABÍAS?').\n"
+                    '- "escenas": 8 escenas en inglés, en el mismo orden que la historia, para ilustrarla con dibujos: '
+                    "cada una, una frase concreta de lo que se ve (lugar, época, objetos y qué hace el protagonista). "
+                    "Si en ese momento sale una persona, es el protagonista stickman ('the stickman ...'). Nada de "
+                    "texto, letreros ni marcas en la imagen, ni violencia explícita.\n\n" + historia)
         datos = json.loads(_pedir(api_key, instrucciones, 4 * 60, 0.8, espera_maxima=60, intentos=2,
                                   modelos=MODELOS_LIGEROS))
         if isinstance(datos.get("gancho"), str) and 3 <= len(datos["gancho"].split()) <= 14:
@@ -131,6 +135,7 @@ def planificar(historia, api_key):
             plan["rotulo"] = datos["rotulo"].strip().upper()[:28]
         if isinstance(datos.get("pregunta"), str) and 2 <= len(datos["pregunta"].split()) <= 8:
             plan["pregunta"] = datos["pregunta"].strip().upper()
+        plan["escenas"] = [e.strip() for e in datos.get("escenas", []) if isinstance(e, str) and e.strip()][:9]
     except Exception as e:
         print(f"Aviso: Gemini no dio el plan del vídeo, uso uno genérico: {e}")
     return plan
@@ -174,6 +179,12 @@ def plano_con_movimiento(clip, duracion):
     plano = clip.fl(recortar, apply_to=[]).set_duration(duracion)
     plano.size = (ANCHO, ALTO)
     return plano
+
+
+def planos_ilustrados(rutas, duracion_total):
+    """Una ilustración por trozo de la historia, en orden, con paneo y golpe de zoom al entrar."""
+    d = duracion_total / len(rutas)
+    return [plano_con_movimiento(ImageClip(r).set_duration(d + 0.05), d) for r in rutas]
 
 
 def descargar_planos(pexels_key, busquedas, duracion_total):
