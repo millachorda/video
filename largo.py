@@ -110,12 +110,22 @@ Devuelve solo un objeto JSON con:
 - "busquedas_cierre": 3 búsquedas para el cierre.
 Las búsquedas son para vídeos de stock {CANAL['estilo_busquedas']}: en inglés, de 2 a 3 palabras, en el mismo
 orden que el texto, de cosas concretas que se puedan ver (objetos, lugares, acciones), sin personas reconocibles."""
-    datos = json.loads(_pedir(GEMINI_API_KEY, instrucciones, 12 * 60, 0.8, espera_maxima=300, intentos=2))
-    capitulos = [c for c in datos.get("capitulos", []) if isinstance(c, dict) and len(c.get("texto", "")) > 600]
-    if len(capitulos) < 4 or len(datos.get("intro", "")) < 300 or len(datos.get("cierre", "")) < 200:
-        raise ValueError(f"el guion no salió bien: {len(capitulos)} capítulos válidos")
-    datos["capitulos"] = capitulos
-    return datos
+    # A veces Gemini devuelve el JSON mal formado (una coma o unas comillas de menos) o un guion corto:
+    # se vuelve a pedir hasta 3 veces antes de rendirse
+    ultimo_error = None
+    for intento in range(3):
+        try:
+            datos = json.loads(_pedir(GEMINI_API_KEY, instrucciones, 12 * 60, 0.8, espera_maxima=300, intentos=2))
+            capitulos = [c for c in datos.get("capitulos", [])
+                         if isinstance(c, dict) and len(c.get("texto", "")) > 600]
+            if len(capitulos) < 4 or len(datos.get("intro", "")) < 300 or len(datos.get("cierre", "")) < 200:
+                raise ValueError(f"el guion no salió bien: {len(capitulos)} capítulos válidos")
+            datos["capitulos"] = capitulos
+            return datos
+        except ValueError as e:  # json.JSONDecodeError también es un ValueError
+            ultimo_error = e
+            print(f"Aviso: guion no válido ({e}); lo pido otra vez ({intento + 2}/3)...")
+    raise ultimo_error
 
 
 # ------------------------------------------------------------------ Voz y música
