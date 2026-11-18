@@ -178,6 +178,13 @@ async def main():
     while lineas and not es_parte_pendiente(lineas[0]) and temas.repetida(lineas[0], publicados, GEMINI_API_KEY):
         print(f"Tema ya publicado, se salta: {lineas[0][:80]}")
         lineas = lineas[1:]
+    if not lineas and GEMINI_API_KEY:
+        print("La cola se ha quedado sin temas nuevos: pidiendo otra tanda a Gemini...")
+        try:
+            lineas = [h + "\n" for h in generar_historias(GEMINI_API_KEY, [p[:100] for p in publicados],
+                                                            CANAL["encargo_historias"])]
+        except Exception as e:
+            print(f"AVISO: Gemini no pudo escribir historias: {e}")
     if not lineas:
         print("ERROR: historias.txt solo contiene líneas vacías.")
         sys.exit(1)
