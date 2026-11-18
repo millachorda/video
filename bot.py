@@ -11,6 +11,7 @@ from historias_ia import generar_historias, dividir_en_partes
 import montaje
 import youtube
 import horario
+import temas
 import ilustraciones
 from canales import ACTUAL as CANAL, ruta
 
@@ -171,6 +172,12 @@ async def main():
         sys.exit(1)
     with open(HISTORIAS, "r", encoding="utf-8-sig") as f:
         lineas = [l for l in f.readlines() if l.strip()]
+    # Fuera las historias que repiten un tema ya publicado (aunque estén escritas con otras palabras).
+    # Solo se mira la siguiente de la cola (y las que haya que saltar): así se gasta poco de Gemini
+    publicados = [l.strip() for l in open(PUBLICADOS, encoding="utf-8")] if os.path.exists(PUBLICADOS) else []
+    while lineas and not es_parte_pendiente(lineas[0]) and temas.repetida(lineas[0], publicados, GEMINI_API_KEY):
+        print(f"Tema ya publicado, se salta: {lineas[0][:80]}")
+        lineas = lineas[1:]
     if not lineas:
         print("ERROR: historias.txt solo contiene líneas vacías.")
         sys.exit(1)
@@ -376,7 +383,7 @@ async def main():
     # Registro de casos ya usados, para que Gemini no los repita
     if parte == 1:
         with open(PUBLICADOS, "a", encoding="utf-8") as f:
-            f.write(caso_original[:100] + "\n")
+            f.write(caso_original[:220] + "\n")  # Lo bastante largo para reconocer el tema
     print("Todo guardado correctamente. Sistema listo para mañana.")
 
 
