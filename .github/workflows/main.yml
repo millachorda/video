@@ -78,11 +78,8 @@ jobs:
         python-version: '3.10'
 
     - name: 3. Instalar librerías del sistema para procesar video
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y ffmpeg imagemagick fonts-liberation
-        # Permitir a ImageMagick leer los archivos de texto que usa MoviePy
-        sudo sed -i 's/rights="none" pattern="@\*"/rights="read|write" pattern="@*"/' /etc/ImageMagick-6/policy.xml
+      timeout-minutes: 20
+      run: bash instalar.sh
 
     - name: 4. Instalar librerías de Python
       run: |
