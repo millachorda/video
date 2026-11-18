@@ -273,7 +273,8 @@ async def main():
     hashtags_tiktok = f"{del_caso} {CANAL['hashtags_tiktok']}".strip()
     # Título: el gancho del caso (el de la parte 1 para toda la serie), que despierta curiosidad
     if not titulo_base:
-        titulo_base = sin_markdown(plan["gancho"]).rstrip(".")
+        # Título con el nombre que la gente busca (si Gemini lo dio); si no, el gancho
+        titulo_base = sin_markdown(plan.get("titulo") or plan["gancho"]).rstrip(".")
     titulo = (f"{titulo_base} (Parte {parte}/{total})" if total > 1
               else titulo_base[:88 - len(CANAL.get("sufijo_titulo", ""))] + CANAL.get("sufijo_titulo", ""))
     estados = []  # Una línea por red social para el mensaje de Telegram

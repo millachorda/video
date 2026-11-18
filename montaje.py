@@ -28,7 +28,8 @@ VOZ = CANAL.get("voz") or os.environ.get("VOZ") or "es-ES-AlvaroNeural"
 VELOCIDAD = CANAL.get("velocidad", "+10%")   # En Shorts el ritmo retiene; en terror, más lento
 TONO = CANAL.get("tono", "+0Hz")
 DURACION_PLANO = tuple(CANAL.get("planos", (2.0, 3.2)))  # Segundos por plano
-CIERRE = 1.8                 # Segundos de cierre al final, ya sin voz (corto: el silencio hace deslizar)
+CIERRE = 0.6                 # Segundos sin voz al final: casi nada, para que el Short vuelva a empezar ya
+SOLAPE_CIERRE = 2.2          # La pregunta final aparece estos segundos antes de que termine la voz
 GOLPE = 0.25                 # Duración del golpe de zoom al empezar cada plano
 AMARILLO = (255, 222, 0)
 ACENTO = tuple(CANAL.get("acento", AMARILLO))  # Color propio del canal (palabra que suena, gancho, barra…)
@@ -91,6 +92,7 @@ def planificar(historia, api_key):
     """Pide a Gemini un gancho hablado, búsquedas para Pexels y hashtags del caso.
     Si falla, devuelve un plan genérico para que el vídeo salga igual."""
     plan = {"gancho": random.choice(GANCHOS_GENERICOS), "rotulo": None, "pregunta": None, "escenas": [],
+            "titulo": None,
             "busquedas": random.sample(BUSQUEDAS_GENERICAS, 5), "hashtags": []}
     if not api_key:
         return plan
@@ -114,6 +116,9 @@ def planificar(historia, api_key):
                     '- "rotulo": de 1 a 4 palabras en mayúsculas que digan de qué va, para un rótulo fijo arriba '
                     "(lugar y año como 'SIBERIA, 1908', las marcas enfrentadas como 'ADIDAS VS PUMA', el tema "
                     "como 'EL PULPO' o 'LA LUNA').\n"
+                    '- "titulo": título de YouTube de máximo 60 caracteres que empiece por el NOMBRE que la gente '
+                    "buscaría (el caso, la persona, la marca o el fenómeno: 'D. B. Cooper', 'Chupa Chups', 'La Luna') "
+                    "y añada la intriga con un dato concreto. Sin mentir ni exagerar.\n"
                     '- "pregunta": una pregunta concreta de 3 a 6 palabras para el final, propia de ESTA historia y '
                     "fácil de responder en un comentario (por ejemplo '¿TÚ HABRÍAS VENDIDO?', '¿QUIÉN FUE, SEGÚN "
                     "TÚ?', '¿CUÁL NO SABÍAS?').\n"
@@ -135,6 +140,8 @@ def planificar(historia, api_key):
             plan["rotulo"] = datos["rotulo"].strip().upper()[:28]
         if isinstance(datos.get("pregunta"), str) and 2 <= len(datos["pregunta"].split()) <= 8:
             plan["pregunta"] = datos["pregunta"].strip().upper()
+        if isinstance(datos.get("titulo"), str) and 10 <= len(datos["titulo"].strip()) <= 80:
+            plan["titulo"] = datos["titulo"].strip()
         plan["escenas"] = [e.strip() for e in datos.get("escenas", []) if isinstance(e, str) and e.strip()][:9]
     except Exception as e:
         print(f"Aviso: Gemini no dio el plan del vídeo, uso uno genérico: {e}")
@@ -500,8 +507,10 @@ def cierre(ruta_fuente, inicio, parte, total, pregunta=None):
                   + [[("COMÉNTALO", (255, 255, 255))], [("Y SÍGUEME PARA MÁS", (255, 255, 255))]])
     else:
         lineas = [[(texto, ACENTO if destacado else (255, 255, 255))] for texto, destacado in CANAL["cierre"]]
-    return (ImageClip(_imagen_texto(lineas, fuente)).set_start(inicio).set_duration(CIERRE)
-            .set_position(("center", "center")).crossfadein(0.3))
+    # Arriba, para no tapar los subtítulos, y mientras la voz dice las últimas palabras
+    empieza = max(0.0, inicio - SOLAPE_CIERRE)
+    return (ImageClip(_imagen_texto(lineas, ImageFont.truetype(fuente.path, 72))).set_start(empieza)
+            .set_duration(inicio + CIERRE - empieza).set_position(("center", 520)).crossfadein(0.2))
 
 
 def montar(historia, gancho_texto, parte, total, archivo_voz, palabras, planos, ruta_fuente, salida,

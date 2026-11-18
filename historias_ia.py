@@ -111,7 +111,10 @@ def generar_historias(api_key, casos_a_evitar, encargo=None):
         from canales import ACTUAL
         encargo = ACTUAL["encargo_historias"]
     instrucciones = f"""Escribe {HISTORIAS_POR_TANDA} {encargo}
-- En español de España, en un solo párrafo de entre 400 y 480 caracteres (unos 30 segundos narrada).
+- En español de España, en un solo párrafo de entre 320 y 400 caracteres (unos 25 segundos narrada: los
+  Shorts cortos se ven enteros y se repiten, y eso es lo que más visitas trae).
+- La última frase tiene que enlazar con el principio, para que cuando el vídeo vuelva a empezar suene
+  continuo y den ganas de verlo otra vez (por ejemplo terminando con la pregunta que abre la historia).
 - Sin títulos, sin emojis, sin comillas tipográficas raras y sin saltos de línea dentro de cada historia.
 - Frases cortas, de menos de 15 palabras, como se habla, no como se escribe.
 - Datos concretos (nombres, lugares, fechas, cifras) en vez de adjetivos vagos.
@@ -125,7 +128,7 @@ Devuelve solo un array JSON de strings, una historia por elemento."""
     texto = _pedir(api_key, instrucciones, LIMITE_SEGUNDOS, 0.9)
     historias = [" ".join(h.split()) for h in json.loads(texto) if isinstance(h, str)]
     # Descarta las que se salgan mucho del tamaño: los subtítulos y la duración dependen de ello
-    validas = [h for h in historias if 300 <= len(h) <= 750]
+    validas = [h for h in historias if 260 <= len(h) <= 650]
     if len(validas) < len(historias):
         print(f"Gemini: se descartan {len(historias) - len(validas)} de {len(historias)} por tamaño "
               f"({sorted(len(h) for h in historias if h not in validas)} caracteres)")
