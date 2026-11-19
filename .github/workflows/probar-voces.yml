@@ -1,0 +1,24 @@
+name: Probar voces naturales
+
+on:
+  workflow_dispatch:
+
+jobs:
+  probar:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+    - uses: actions/checkout@v5
+    - uses: actions/setup-python@v6
+      with:
+        python-version: '3.11'
+    - run: bash instalar.sh
+    - name: Librerías de voz
+      run: |
+        pip install edge-tts soundfile "kokoro>=0.9" chatterbox-tts || pip install edge-tts soundfile "kokoro>=0.9"
+    - run: python -u probar_voces.py
+    - uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: voces
+        path: voces/
