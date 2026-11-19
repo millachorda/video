@@ -9,6 +9,8 @@ TEXTO = ("¿Y si el océano Pacífico se congelara entero? En un segundo, el agu
          "A los diez minutos, las costas de medio planeta quedarían atrapadas bajo el hielo. "
          "Y tras tres días, el clima de la Tierra cambiaría para siempre.")
 os.makedirs("voces", exist_ok=True)
+REFERENCIAS = os.environ.get("REFERENCIAS", "es-ES-AlvaroNeural,es-ES-XimenaNeural").split(",")
+SOLO_CHATTERBOX = os.environ.get("SOLO_CHATTERBOX") == "true"
 
 
 def medir(nombre, funcion):
@@ -24,7 +26,7 @@ def medir(nombre, funcion):
 # Referencias para clonar el timbre (Chatterbox imita la voz y le da entonación más humana)
 async def referencias():
     import edge_tts
-    for voz in ["es-ES-AlvaroNeural", "es-ES-XimenaNeural"]:
+    for voz in REFERENCIAS:
         await edge_tts.Communicate(TEXTO, voz).save(f"voces/ref_{voz}.mp3")
         subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", f"voces/ref_{voz}.mp3", "-ar", "24000",
                         "-ac", "1", f"voces/ref_{voz}.wav"], check=True)
@@ -45,12 +47,13 @@ def chatterbox():
     import torchaudio
     from chatterbox.mtl_tts import ChatterboxMultilingualTTS
     modelo = ChatterboxMultilingualTTS.from_pretrained(device="cpu")
-    for ref in ["es-ES-AlvaroNeural", "es-ES-XimenaNeural"]:
-        for expresividad in (0.5, 0.8):
+    for ref in REFERENCIAS:
+        for expresividad in (0.4, 0.6, 0.8):
             wav = modelo.generate(TEXTO, language_id="es", audio_prompt_path=f"voces/ref_{ref}.wav",
                                   exaggeration=expresividad)
             torchaudio.save(f"voces/chatterbox_{ref}_exp{expresividad}.wav", wav, modelo.sr)
 
 
-medir("Kokoro", kokoro)
+if not SOLO_CHATTERBOX:
+    medir("Kokoro", kokoro)
 medir("Chatterbox", chatterbox)

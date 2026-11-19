@@ -2,6 +2,13 @@ name: Probar voces naturales
 
 on:
   workflow_dispatch:
+    inputs:
+      referencias:
+        description: 'Voces de Microsoft que Chatterbox debe imitar (separadas por comas)'
+        default: 'es-ES-AlvaroNeural,es-ES-XimenaNeural'
+      solo_chatterbox:
+        type: boolean
+        default: false
 
 jobs:
   probar:
@@ -17,6 +24,9 @@ jobs:
       run: |
         pip install edge-tts soundfile "kokoro>=0.9" chatterbox-tts || pip install edge-tts soundfile "kokoro>=0.9"
     - run: python -u probar_voces.py
+      env:
+        REFERENCIAS: ${{ inputs.referencias }}
+        SOLO_CHATTERBOX: ${{ inputs.solo_chatterbox }}
     - uses: actions/upload-artifact@v4
       if: always()
       with:
