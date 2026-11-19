@@ -124,9 +124,11 @@ Reglas:
         "oscuro": False,
         "categoria": "27",            # Educación
         "tema": "historia real de una marca o empresa muy conocida",
-        "ejemplos_gancho": "'Nike empezó con 1.200 dólares prestados', "
-                           "'Blockbuster pudo comprar Netflix por 50 millones', "
-                           "'Zara nació en una cocina de A Coruña'",
+        # Ganchos que mejor han funcionado en el canal (más de 1.000 visitas cada uno)
+        "ejemplos_gancho": "'Salvador Dalí diseñó Chupa Chups en una hora', "
+                           "'Con cuatro coches rotos, Lamborghini desafió a Ferrari', "
+                           "'McDonald's nació en 1948 con 8 hamburguesas', "
+                           "'Nintendo traicionó a Sony en una feria'",
         "ganchos_genericos": ["Empezó sin nada.", "Todos le dijeron que era imposible.",
                               "Así nació una empresa gigante."],
         "estilo_busquedas": "de negocios, dinero, tiendas, fábricas y ciudad (lo que muestre la historia)",
@@ -143,6 +145,10 @@ Reglas:
 Qué funciona en este canal (los datos lo demuestran):
 - Marcas que el público de España usa o conoce SÍ o SÍ: Zara, Mercadona, Chupa Chups, Mango, IKEA, Nike, Adidas y Puma, Apple, Coca-Cola, McDonald's, Netflix, Red Bull, LEGO, Starbucks, Ferrari y Lamborghini, Spotify, Amazon, Nintendo, Samsung, PlayStation, Telepizza, Primark, Rolex… Evita empresas o personas que el gran público no conoce.
 - Mezcla tres tipos: cómo empezó una marca famosa desde casi nada; el error que costó miles de millones (Blockbuster y Netflix, Kodak y la cámara digital, Nokia y el smartphone, la discográfica que rechazó a los Beatles…); y rivalidades (Adidas contra Puma, Ferrari contra Lamborghini, Coca-Cola contra Pepsi).
+- Lo que más visitas trae es UN DATO SORPRENDENTE Y POCO CONOCIDO de una marca famosa (Dalí diseñó el logo de
+  Chupa Chups en una hora, Lamborghini empezó porque Ferrari le despreció, Nintendo traicionó a Sony en una feria).
+  Evita las historias que todo el mundo ya se sabe (el garaje de Apple, "cómo nació X") salvo que cuentes un dato
+  que casi nadie conoce. Nada de frases vagas ("salvar la música", "empezó con una lata vacía").
 - La primera frase lleva el NOMBRE DE LA MARCA y una CIFRA o un contraste brutal en las primeras 8 palabras ("Con solo 43 dólares prestados, Nike…"). Nunca empieces con el año ("En 1976…" o "En mil novecientos…"): la fecha va después.
 - Escribe las cifras con números (43 dólares, 1.200 millones, 1976), no con letras.
 

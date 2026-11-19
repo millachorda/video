@@ -155,9 +155,12 @@ def planificar(historia, api_key):
                     '- "rotulo": de 1 a 4 palabras en mayúsculas que digan de qué va, para un rótulo fijo arriba '
                     "(lugar y año como 'SIBERIA, 1908', las marcas enfrentadas como 'ADIDAS VS PUMA', el tema "
                     "como 'EL PULPO' o 'LA LUNA').\n"
-                    '- "titulo": título de YouTube de máximo 60 caracteres que empiece por el NOMBRE que la gente '
-                    "buscaría (el caso, la persona, la marca o el fenómeno: 'D. B. Cooper', 'Chupa Chups', 'La Luna') "
-                    "y añada la intriga con un dato concreto. Sin mentir ni exagerar.\n"
+                    '- "titulo": título de YouTube de máximo 60 caracteres: UNA FRASE NATURAL (sujeto y verbo, sin '
+                    "dos puntos ni estructura 'X: cómo…') que empiece por el NOMBRE que la gente buscaría (el caso, la "
+                    "persona, la marca o el fenómeno) y cuente el dato más sorprendente y concreto de la historia. "
+                    "Ejemplos que funcionan: 'Salvador Dalí diseñó Chupa Chups en una hora', 'Con cuatro coches rotos, "
+                    "Lamborghini desafió a Ferrari', 'John Barclay: su cuerpo intacto 60 años después'. Nada vago "
+                    "('cómo nació', 'para salvar la música', 'la historia de'). Sin mentir ni exagerar.\n"
                     '- "pregunta": una pregunta concreta de 3 a 6 palabras para el final, propia de ESTA historia y '
                     "fácil de responder en un comentario (por ejemplo '¿TÚ HABRÍAS VENDIDO?', '¿QUIÉN FUE, SEGÚN "
                     "TÚ?', '¿CUÁL NO SABÍAS?').\n"
