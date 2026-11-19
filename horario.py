@@ -80,4 +80,5 @@ if __name__ == "__main__":
         for c in CANALES:
             print(c, [f"{h % 24}:xx" for h in horas_de_hoy(c, dia)], "publicados hoy:", publicados_hoy(archivo(c), dia))
     else:
-        print(json.dumps([c for c in CANALES if toca(c, archivo(c))]))
+        # Solo los canales activos (los que aún no existen en YouTube no gastan ejecuciones)
+        print(json.dumps([c for c in CANALES if CANALES[c].get("activo", True) and toca(c, archivo(c))]))
