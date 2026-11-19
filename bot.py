@@ -224,7 +224,8 @@ async def main():
     archivo_audio = "voz_episodio.mp3"
     # Con límite de tiempo: si el servicio de voz se cuelga, mejor fallar que agotar las 45 min
     palabras = await asyncio.wait_for(
-        montaje.generar_voz(f"{plan['gancho']} {historia_actual}", archivo_audio), timeout=300)
+        montaje.generar_voz(f"{plan['gancho']} {historia_actual}", archivo_audio),
+        timeout=1800 if montaje.VOZ_NATURAL else 300)  # La voz natural se genera en CPU: tarda minutos
     print(f"Locución lista: {len(palabras)} palabras sincronizadas.")
 
     # -----------------------------------------------------------

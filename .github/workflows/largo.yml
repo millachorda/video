@@ -66,6 +66,7 @@ jobs:
     - name: Hacer y subir el vídeo largo
       env:
         CANAL: ${{ matrix.canal }}
+        SIN_VOZ_NATURAL: 'true'
         PRUEBA: ${{ github.event_name == 'workflow_dispatch' && inputs.prueba }}
         PROGRAMADO: ${{ github.event_name == 'schedule' }}
         PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}

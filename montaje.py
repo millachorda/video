@@ -43,9 +43,48 @@ BUSQUEDAS_GENERICAS = CANAL["busquedas_genericas"]
 VOCES_RESERVA = CANAL.get("voces_reserva") or ["en-US-BrianMultilingualNeural", "es-ES-AlvaroNeural"]
 
 
+# Voz más humana (Chatterbox, ver voz_natural.py) para los canales que la tengan configurada.
+# Los vídeos largos no la usan (SIN_VOZ_NATURAL): 9 minutos de voz tardarían casi una hora.
+VOZ_NATURAL = None if os.environ.get("SIN_VOZ_NATURAL") == "true" else CANAL.get("voz_natural")
+ENTORNO_NATURAL = os.path.expanduser("~/entorno_voz_natural")
+TEXTO_REFERENCIA = ("Esto es lo que pasaría de verdad si el mundo cambiara de golpe. Te lo cuento paso a paso, "
+                    "con datos reales, sin exagerar nada, y al final te vas a quedar con la boca abierta.")
+
+
+def _voz_natural(texto, archivo):
+    """Voz con Chatterbox imitando la voz de referencia del canal. Devuelve [(inicio, fin, palabra)]."""
+    import subprocess
+    import sys
+    import imageio_ffmpeg
+    python = os.path.join(ENTORNO_NATURAL, "bin", "python")
+    if not os.path.exists(python):
+        print("  Preparando Chatterbox (solo la primera vez en cada ejecución)...")
+        subprocess.run([sys.executable, "-m", "venv", ENTORNO_NATURAL], check=True)
+        subprocess.run([python, "-m", "pip", "install", "-q", "chatterbox-tts", "num2words", "soundfile"],
+                       check=True, timeout=1200)
+    ffmpeg = imageio_ffmpeg.get_ffmpeg_exe()
+    asyncio.run(edge_tts.Communicate(TEXTO_REFERENCIA, VOZ_NATURAL["referencia"]).save("voz_referencia.mp3"))
+    subprocess.run([ffmpeg, "-y", "-loglevel", "error", "-i", "voz_referencia.mp3", "-ar", "24000", "-ac", "1",
+                    "voz_referencia.wav"], check=True)
+    with open("voz_texto.txt", "w", encoding="utf-8") as f:
+        f.write(texto)
+    subprocess.run([python, os.path.join(os.path.dirname(os.path.abspath(__file__)), "voz_natural.py"),
+                    "voz_texto.txt", "voz_referencia.wav", "voz_natural.wav", "voz_tiempos.json",
+                    str(VOZ_NATURAL.get("expresividad", 0.5))], check=True, timeout=1500)
+    subprocess.run([ffmpeg, "-y", "-loglevel", "error", "-i", "voz_natural.wav", "-b:a", "192k", archivo], check=True)
+    return [tuple(x) for x in json.load(open("voz_tiempos.json", encoding="utf-8"))]
+
+
 async def generar_voz(texto, archivo):
     """Genera la locución y devuelve [(inicio, fin, palabra)] en segundos.
-    El servicio de voz a veces no devuelve audio: reintenta y, si sigue fallando, cambia de voz."""
+    Con voz natural configurada, la intenta primero; si falla, usa la de Microsoft.
+    El servicio de Microsoft a veces no devuelve audio: reintenta y, si sigue fallando, cambia de voz."""
+    if VOZ_NATURAL:
+        try:
+            print(f"  Voz natural: Chatterbox imitando a {VOZ_NATURAL['referencia']}...")
+            return await asyncio.to_thread(_voz_natural, texto, archivo)
+        except Exception as e:
+            print(f"  Aviso: la voz natural falló ({e}); uso la de Microsoft.")
     intentos = [VOZ, VOZ] + [v for v in VOCES_RESERVA if v != VOZ]
     for n, voz in enumerate(intentos):
         try:

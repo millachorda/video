@@ -59,7 +59,9 @@ Reglas:
         "particulas": True,
         "estilo_ilustracion": "bright vivid colors, epic sci-fi and nature scenes, dramatic sky",
         # Voz femenina enérgica, cian, cronómetro en pantalla ("10 MINUTOS", "3 DÍAS")
-        "voz": "en-US-AvaMultilingualNeural", "velocidad": "+8%", "tono": "+0Hz",
+        # Voz elegida por el usuario: Jorge, humanizado con Chatterbox (expresividad entre 0,4 y 0,6)
+        "voz_natural": {"referencia": "es-MX-JorgeNeural", "expresividad": 0.5},
+        "voz": "es-MX-JorgeNeural", "velocidad": "+5%", "tono": "+0Hz",
         "voces_reserva": ["en-US-EmmaMultilingualNeural", "es-ES-ElviraNeural"],
         "acento": (0, 220, 255), "planos": (2.0, 3.0), "golpes": True, "destellos": True, "marcadores": "tiempo",
         "sufijo_titulo": "",
