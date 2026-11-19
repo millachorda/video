@@ -21,7 +21,8 @@ MODELO = "@cf/black-forest-labs/flux-1-schnell"
 
 # El mismo personaje en todos los canales y vídeos: es lo que da identidad al formato
 PERSONAJE = ("a simple stickman character with a big round white head, two small black dot eyes, "
-             "a tiny neutral mouth and a thin black stick body")
+             "a tiny neutral mouth and a thin black stick body with exactly two arms and exactly two legs, "
+             "correct simple anatomy, only one stickman unless the scene needs more people")
 ESTILO = ("2D cartoon illustration for an animated explainer video, flat colors, clean bold black outlines, "
           "detailed background, cinematic composition, no text, no letters, no watermark")
 
