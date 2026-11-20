@@ -230,13 +230,25 @@ def plano_con_movimiento(clip, duracion):
     return plano
 
 
+def nitida(ruta):
+    """FLUX dibuja a 1024 px y el vídeo la amplía casi al doble: se amplía antes con Lanczos (mucho mejor
+    que el reescalado del montaje) y se le da un poco de nitidez para que no se vea blanda."""
+    from PIL import ImageFilter
+    img = Image.open(ruta).convert("RGB")
+    lado = int(ALTO * 1.15)
+    img = img.resize((lado, lado), Image.LANCZOS).filter(ImageFilter.UnsharpMask(radius=2.2, percent=70, threshold=2))
+    salida = ruta.rsplit(".", 1)[0] + "_hd.jpg"
+    img.save(salida, quality=95)
+    return salida
+
+
 DURACION_ILUSTRACION = 3.0   # Segundos que se ve cada ilustración entre clip y clip
 
 
 def mezclar_planos(rutas, pexels_key, busquedas, duracion_total):
     """Alterna ilustraciones del stickman y clips de vídeo reales, ambos en el orden de la historia:
     la ilustración da identidad y el vídeo da movimiento."""
-    ilustradas = [plano_con_movimiento(ImageClip(r).set_duration(DURACION_ILUSTRACION + 0.05),
+    ilustradas = [plano_con_movimiento(ImageClip(nitida(r)).set_duration(DURACION_ILUSTRACION + 0.05),
                                        DURACION_ILUSTRACION) for r in rutas]
     falta = max(6.0, duracion_total - len(ilustradas) * DURACION_ILUSTRACION)
     videos = descargar_planos(pexels_key, busquedas, falta)
@@ -555,6 +567,21 @@ def cierre(ruta_fuente, inicio, parte, total, pregunta=None):
             .set_duration(inicio + CIERRE - empieza).set_position(("center", 520)).crossfadein(0.2))
 
 
+def normalizar_volumen(video):
+    """Deja el sonido a -14 LUFS, el nivel al que YouTube normaliza: ni bajo ni saturado. La imagen no se toca."""
+    import subprocess
+    import imageio_ffmpeg
+    temporal = video.rsplit(".", 1)[0] + "_vol.mp4"
+    try:
+        subprocess.run([imageio_ffmpeg.get_ffmpeg_exe(), "-y", "-loglevel", "error", "-i", video, "-c:v", "copy",
+                        "-af", "loudnorm=I=-14:TP=-1.5:LRA=11", "-c:a", "aac", "-b:a", "192k", "-ar", "44100",
+                        "-movflags", "+faststart", temporal], check=True, timeout=300)
+        os.replace(temporal, video)
+        print("  volumen normalizado a -14 LUFS")
+    except Exception as e:
+        print(f"  Aviso: no se pudo normalizar el volumen ({e}); se deja como estaba.")
+
+
 def montar(historia, gancho_texto, parte, total, archivo_voz, palabras, planos, ruta_fuente, salida,
            rotulo=None, pregunta=None, etiqueta=None):
     voz = AudioFileClip(archivo_voz)
@@ -600,8 +627,10 @@ def montar(historia, gancho_texto, parte, total, archivo_voz, palabras, planos, 
     t0 = time.time()
     video.write_videofile(
         salida, fps=FPS, codec="libx264", audio_codec="aac", audio_bitrate="160k",
-        preset="faster", threads=2, logger=None,
+        preset="medium", threads=2, logger=None,
         # Calidad constante alta, con tope para no pasar de los 50 MB de Telegram
-        ffmpeg_params=["-crf", "20", "-maxrate", "8M", "-bufsize", "16M", "-pix_fmt", "yuv420p"],
+        ffmpeg_params=["-crf", "18", "-maxrate", "9M", "-bufsize", "18M", "-pix_fmt", "yuv420p",
+                       "-profile:v", "high", "-movflags", "+faststart"],
     )
     print(f"  render: {time.time() - t0:.0f} s")
+    normalizar_volumen(salida)
