@@ -127,10 +127,22 @@ def tiempos_aproximados(texto, duracion):
 GANCHOS_GENERICOS = CANAL["ganchos_genericos"]
 
 
+def gancho_de_reserva(historia):
+    """Si Gemini no responde, el gancho (y el título) sale del principio de la propia historia, que dice de
+    qué va el vídeo. Los ganchos genéricos ("Este caso sigue sin resolverse") daban títulos que no se buscan."""
+    import re
+    primera = re.split(r"(?<=[.!?…])\s+", historia.strip())[0]
+    palabras = primera.split()
+    if len(palabras) < 3:
+        return random.choice(GANCHOS_GENERICOS)
+    corte = " ".join(palabras[:11]).rstrip(",;:")
+    return corte if len(palabras) <= 11 else corte + "…"
+
+
 def planificar(historia, api_key):
     """Pide a Gemini un gancho hablado, búsquedas para Pexels y hashtags del caso.
     Si falla, devuelve un plan genérico para que el vídeo salga igual."""
-    plan = {"gancho": random.choice(GANCHOS_GENERICOS), "rotulo": None, "pregunta": None, "escenas": [],
+    plan = {"gancho": gancho_de_reserva(historia), "rotulo": None, "pregunta": None, "escenas": [],
             "titulo": None,
             "busquedas": random.sample(BUSQUEDAS_GENERICAS, 5), "hashtags": []}
     if not api_key:
