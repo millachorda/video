@@ -158,10 +158,10 @@ Reglas:
 - Termina con una pregunta al espectador.""",
     },
     "relatos": {
-        "nombre": "Relatos de Medianoche",
+        "nombre": "Relatos de Med1anoche",
         "carpeta": "canales/relatos",
         "secret_youtube": "YT_REFRESH_TOKEN_RELATOS",
-        "activo": False,  # Aún no existe en YouTube: el horario no lo lanza (poner True al conectarlo)
+        "activo": True,   # Conectado el 22-11-2026
         "particulas": True,
         "estilo_ilustracion": "dark eerie palette with muted purple and blue tones, horror atmosphere, long shadows",
         # Terror: voz española lenta y grave, violeta, planos largos sin golpes ni destellos (dan tensión)
@@ -210,7 +210,7 @@ Reglas:
         "nombre": "Datos Imposibles",
         "carpeta": "canales/datos",
         "secret_youtube": "YT_REFRESH_TOKEN_DATOS",
-        "activo": False,  # Aún no existe en YouTube: el horario no lo lanza (poner True al conectarlo)
+        "activo": True,   # Conectado el 22-11-2026
         "particulas": False,
         "estilo_ilustracion": "bright colorful palette, fun and surprising, clear simple scenes",
         # Voz femenina española, naranja, lista "DATO 1 / DATO 2 / DATO 3" en pantalla
