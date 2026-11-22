@@ -161,7 +161,7 @@ Reglas:
         "nombre": "Relatos de Med1anoche",
         "carpeta": "canales/relatos",
         "secret_youtube": "YT_REFRESH_TOKEN_RELATOS",
-        "activo": True,   # Conectado el 22-11-2026
+        "activo": False,  # En pausa: el token subía al canal de Datos Imposibles; reconectar con conectar_youtube.py
         "particulas": True,
         "estilo_ilustracion": "dark eerie palette with muted purple and blue tones, horror atmosphere, long shadows",
         # Terror: voz española lenta y grave, violeta, planos largos sin golpes ni destellos (dan tensión)
