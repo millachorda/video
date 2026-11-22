@@ -1,0 +1,34 @@
+name: Comprobar conexión con YouTube
+# Renueva el acceso de cada canal (sin subir nada) para confirmar que todos los tokens funcionan.
+on:
+  workflow_dispatch:
+
+jobs:
+  comprobar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probar cada canal
+        env:
+          CID: ${{ secrets.YT_CLIENT_ID }}
+          CSEC: ${{ secrets.YT_CLIENT_SECRET }}
+          T_CURIOMIND: ${{ secrets.YT_REFRESH_TOKEN }}
+          T_YSI: ${{ secrets.YT_REFRESH_TOKEN_YSI }}
+          T_DECERO: ${{ secrets.YT_REFRESH_TOKEN_DECERO }}
+          T_RELATOS: ${{ secrets.YT_REFRESH_TOKEN_RELATOS }}
+          T_DATOS: ${{ secrets.YT_REFRESH_TOKEN_DATOS }}
+        run: |
+          python3 - <<'EOF'
+          import json, os, urllib.parse, urllib.request
+          fallos = 0
+          for canal in ("CURIOMIND", "YSI", "DECERO", "RELATOS", "DATOS"):
+              datos = urllib.parse.urlencode({"client_id": os.environ["CID"], "client_secret": os.environ["CSEC"],
+                                              "refresh_token": os.environ["T_" + canal],
+                                              "grant_type": "refresh_token"}).encode()
+              try:
+                  r = json.load(urllib.request.urlopen("https://oauth2.googleapis.com/token", datos))
+                  print(f"{canal}: OK (permiso: {r.get('scope')})")
+              except urllib.error.HTTPError as e:
+                  fallos += 1
+                  print(f"{canal}: FALLO {e.code} {e.read()[:200]!r}")
+          raise SystemExit(1 if fallos else 0)
+          EOF
