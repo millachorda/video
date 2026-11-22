@@ -6,6 +6,8 @@ on:
     - cron: '23 9 * * 0'
     # Miércoles ~10:23: un segundo vídeo largo para los canales donde más rinde (misterio y negocios)
     - cron: '23 9 * * 3'
+    # Viernes ~10:23: un tercero solo para ¿Y Si…?, el canal con visitas más constantes
+    - cron: '23 9 * * 5'
   workflow_dispatch:
     inputs:
       canal:
@@ -33,8 +35,9 @@ jobs:
         PROGRAMA: ${{ github.event.schedule }}
       run: |
         if [ "$PROGRAMA" = "23 9 * * 3" ]; then ELEGIDO=miercoles; fi
+        if [ "$PROGRAMA" = "23 9 * * 5" ]; then ELEGIDO=ysi; fi
         case "${ELEGIDO:-todos}" in
-          miercoles) c='["curiomind","decero"]' ;;
+          miercoles) c='["ysi","curiomind","decero"]' ;;
           todos) c='["curiomind","ysi","decero","relatos","datos"]' ;;
           *) c="[\"$ELEGIDO\"]" ;;
         esac
