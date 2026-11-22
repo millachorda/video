@@ -15,6 +15,11 @@ import temas
 import ilustraciones
 from canales import ACTUAL as CANAL, ruta
 
+if not CANAL.get("activo", True):
+    # Un canal en pausa no publica aunque ya lo hubiera elegido una ejecución anterior
+    print(f"Canal {CANAL['nombre']} en pausa: no se publica nada.")
+    raise SystemExit(0)
+
 # ---------------------------------------------------------------
 # Configuración
 # ---------------------------------------------------------------
