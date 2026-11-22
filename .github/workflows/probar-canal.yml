@@ -1,0 +1,46 @@
+name: Probar a qué canal sube un token
+# Sube un clip negro de 3 s como OCULTO y dice en qué canal de YouTube ha quedado (bórralo después en Studio).
+on:
+  workflow_dispatch:
+    inputs:
+      canal:
+        type: choice
+        options: [curiomind, ysi, decero, relatos, datos]
+        default: relatos
+
+jobs:
+  probar:
+    runs-on: ubuntu-24.04
+    steps:
+    - uses: actions/checkout@v5
+    - uses: actions/setup-python@v6
+      with:
+        python-version: '3.11'
+    - name: Subir clip de prueba
+      env:
+        CANAL: ${{ inputs.canal }}
+        YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+        YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+        YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+        YT_REFRESH_TOKEN_YSI: ${{ secrets.YT_REFRESH_TOKEN_YSI }}
+        YT_REFRESH_TOKEN_DECERO: ${{ secrets.YT_REFRESH_TOKEN_DECERO }}
+        YT_REFRESH_TOKEN_RELATOS: ${{ secrets.YT_REFRESH_TOKEN_RELATOS }}
+        YT_REFRESH_TOKEN_DATOS: ${{ secrets.YT_REFRESH_TOKEN_DATOS }}
+      run: |
+        pip install -q google-api-python-client google-auth requests imageio-ffmpeg
+        python - <<'EOF'
+        import json, subprocess, time, urllib.request
+        import imageio_ffmpeg, youtube
+        subprocess.run([imageio_ffmpeg.get_ffmpeg_exe(), "-y", "-loglevel", "error", "-f", "lavfi", "-i",
+                        "color=black:s=1080x1920:d=3", "-pix_fmt", "yuv420p", "prueba.mp4"], check=True)
+        vid, enlace = youtube.subir("prueba.mp4", "Prueba de conexión (borrar)", "Prueba", [], privacidad="unlisted")
+        print("Subido (oculto):", enlace)
+        for _ in range(12):
+            try:
+                d = json.load(urllib.request.urlopen(
+                    f"https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v={vid}&format=json"))
+                print("CANAL DONDE HA QUEDADO:", d["author_name"], d["author_url"])
+                break
+            except Exception:
+                time.sleep(10)
+        EOF
