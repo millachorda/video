@@ -1,1 +1,2 @@
 Tierra deja de girar
+atmosfera_duplicar_oxigeno
