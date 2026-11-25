@@ -24,6 +24,7 @@ on:
 
 permissions:
   contents: write
+  actions: write   # para lanzar el vídeo largo (largo.yml)
 
 jobs:
   elegir:
@@ -46,6 +47,23 @@ jobs:
         esac
         echo "A publicar: $c"
         echo "canales=$c" >> "$GITHUB_OUTPUT"
+    - name: Lanzar el vídeo largo si hoy toca y aún no se ha hecho
+      if: inputs.canal == '' || inputs.canal == 'auto'
+      env:
+        GH_TOKEN: ${{ github.token }}
+        REPO: ${{ github.repository }}
+      run: |
+        dia=$(TZ=Europe/Madrid date +%u); hora=$(TZ=Europe/Madrid date +%-H)
+        case "$dia" in 7|3|5) ;; *) exit 0 ;; esac
+        [ "$hora" -ge 10 ] && [ "$hora" -lt 20 ] || exit 0
+        desde=$(date -u +%Y-%m-%dT00:00:00Z)
+        hechos=$(gh run list -R "$REPO" -w largo.yml -L 20 --json createdAt,event                  -q "[.[] | select(.createdAt >= \"$desde\" and .event == \"workflow_dispatch\")] | length")
+        if [ "$hechos" = "0" ]; then
+          gh workflow run largo.yml -R "$REPO" -f canal=hoy -f programado=true -f prueba=false
+          echo "Vídeo largo de hoy lanzado"
+        else
+          echo "El vídeo largo de hoy ya está lanzado"
+        fi
 
   build-and-render:
     needs: elegir

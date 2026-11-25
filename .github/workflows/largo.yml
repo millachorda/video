@@ -1,20 +1,20 @@
 name: Vídeo largo semanal
 
+# Lo lanza main.yml (que cron-job.org arranca cada 15 min) los domingos, miércoles y viernes desde las 10:00:
+# el cron propio de GitHub llegaba con horas de retraso o no llegaba.
+#   domingo: todos los canales · miércoles: ¿Y Si…?, CurioMind y De Cero · viernes: solo ¿Y Si…?
 on:
-  schedule:
-    # Domingos ~10:23 en España (invierno): todos los canales, uno detrás de otro
-    - cron: '23 9 * * 0'
-    # Miércoles ~10:23: un segundo vídeo largo para los canales donde más rinde (misterio y negocios)
-    - cron: '23 9 * * 3'
-    # Viernes ~10:23: un tercero solo para ¿Y Si…?, el canal con visitas más constantes
-    - cron: '23 9 * * 5'
   workflow_dispatch:
     inputs:
       canal:
-        description: 'Canal'
+        description: 'Canal (hoy = los que tocan según el día)'
         type: choice
-        options: [curiomind, ysi, decero, relatos, datos, todos]
+        options: [hoy, curiomind, ysi, decero, relatos, datos, todos]
         default: curiomind
+      programado:
+        description: 'Lanzado automáticamente (no tocar)'
+        type: boolean
+        default: false
       prueba:
         description: 'Prueba: se sube como OCULTO para revisarlo (y no se apunta el tema)'
         type: boolean
@@ -32,10 +32,14 @@ jobs:
     - id: c
       env:
         ELEGIDO: ${{ inputs.canal }}
-        PROGRAMA: ${{ github.event.schedule }}
       run: |
-        if [ "$PROGRAMA" = "23 9 * * 3" ]; then ELEGIDO=miercoles; fi
-        if [ "$PROGRAMA" = "23 9 * * 5" ]; then ELEGIDO=ysi; fi
+        if [ "$ELEGIDO" = "hoy" ]; then
+          case "$(TZ=Europe/Madrid date +%u)" in
+            3) ELEGIDO=miercoles ;;
+            5) ELEGIDO=ysi ;;
+            *) ELEGIDO=todos ;;
+          esac
+        fi
         case "${ELEGIDO:-todos}" in
           miercoles) c='["ysi","curiomind","decero"]' ;;
           todos) c='["curiomind","ysi","decero","relatos","datos"]' ;;
@@ -70,8 +74,8 @@ jobs:
       env:
         CANAL: ${{ matrix.canal }}
         SIN_VOZ_NATURAL: 'true'
-        PRUEBA: ${{ github.event_name == 'workflow_dispatch' && inputs.prueba }}
-        PROGRAMADO: ${{ github.event_name == 'schedule' }}
+        PRUEBA: ${{ inputs.prueba && !inputs.programado }}
+        PROGRAMADO: ${{ inputs.programado }}
         PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
         GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
@@ -86,7 +90,7 @@ jobs:
         YT_REFRESH_TOKEN_DATOS: ${{ secrets.YT_REFRESH_TOKEN_DATOS }}
       run: python -u largo.py
     - name: Guardar el vídeo de prueba como artefacto
-      if: always() && github.event_name == 'workflow_dispatch' && inputs.prueba
+      if: always() && inputs.prueba && !inputs.programado
       uses: actions/upload-artifact@v4
       with:
         name: largo-${{ matrix.canal }}
