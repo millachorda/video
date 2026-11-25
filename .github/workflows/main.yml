@@ -49,6 +49,8 @@ jobs:
         echo "canales=$c" >> "$GITHUB_OUTPUT"
     - name: Lanzar el vídeo largo si hoy toca y aún no se ha hecho
       if: inputs.canal == '' || inputs.canal == 'auto'
+      # Si GitHub falla al lanzarlo, los Shorts siguen igual; lo reintenta la siguiente ejecución (15 min)
+      continue-on-error: true
       env:
         GH_TOKEN: ${{ github.token }}
         REPO: ${{ github.repository }}
@@ -59,8 +61,13 @@ jobs:
         desde=$(date -u +%Y-%m-%dT00:00:00Z)
         hechos=$(gh run list -R "$REPO" -w largo.yml -L 20 --json createdAt,event                  -q "[.[] | select(.createdAt >= \"$desde\" and .event == \"workflow_dispatch\")] | length")
         if [ "$hechos" = "0" ]; then
-          gh workflow run largo.yml -R "$REPO" -f canal=hoy -f programado=true -f prueba=false
-          echo "Vídeo largo de hoy lanzado"
+          for i in 1 2 3; do
+            gh api -X POST "repos/$REPO/actions/workflows/largo.yml/dispatches" -f ref=main \
+              -f 'inputs[canal]=hoy' -f 'inputs[programado]=true' -f 'inputs[prueba]=false' \
+              && { echo "Vídeo largo de hoy lanzado"; exit 0; }
+            sleep 20
+          done
+          exit 1
         else
           echo "El vídeo largo de hoy ya está lanzado"
         fi
