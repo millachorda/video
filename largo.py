@@ -19,6 +19,7 @@ import random
 import subprocess
 import sys
 import textwrap
+import time
 
 import numpy as np
 import requests
@@ -31,6 +32,20 @@ import sonido
 import youtube
 from canales import ACTUAL as CANAL, ruta
 from historias_ia import _pedir
+
+
+def _pedir_con_paciencia(instrucciones, rondas=5, pausa=10 * 60):
+    """El vídeo largo no tiene prisa: si Gemini está saturado (503) en todos los modelos, espera 10 minutos
+    y vuelve a probar, hasta 5 rondas (~1 hora), en vez de dar el vídeo por perdido."""
+    for ronda in range(rondas):
+        try:
+            return _pedir(GEMINI_API_KEY, instrucciones, 12 * 60, 0.8, espera_maxima=300, intentos=2)
+        except RuntimeError as e:
+            if ronda == rondas - 1:
+                raise
+            print(f"Gemini no responde ahora ({str(e).splitlines()[-1][:120]}); "
+                  f"vuelvo a probar en {pausa // 60} min ({ronda + 2}/{rondas})...")
+            time.sleep(pausa)
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 PEXELS_API_KEY = os.environ.get("PEXELS_API_KEY")
@@ -115,7 +130,7 @@ orden que el texto, de cosas concretas que se puedan ver (objetos, lugares, acci
     ultimo_error = None
     for intento in range(3):
         try:
-            datos = json.loads(_pedir(GEMINI_API_KEY, instrucciones, 12 * 60, 0.8, espera_maxima=300, intentos=2))
+            datos = json.loads(_pedir_con_paciencia(instrucciones))
             capitulos = [c for c in datos.get("capitulos", [])
                          if isinstance(c, dict) and len(c.get("texto", "")) > 600]
             if len(capitulos) < 4 or len(datos.get("intro", "")) < 300 or len(datos.get("cierre", "")) < 200:

@@ -9,7 +9,7 @@ on:
       canal:
         description: 'Canal (hoy = los que tocan según el día)'
         type: choice
-        options: [hoy, curiomind, ysi, decero, relatos, datos, todos]
+        options: [hoy, curiomind, ysi, decero, relatos, datos, miercoles, todos]
         default: curiomind
       programado:
         description: 'Lanzado automáticamente (no tocar)'
@@ -50,7 +50,7 @@ jobs:
   largo:
     needs: elegir
     runs-on: ubuntu-24.04
-    timeout-minutes: 150
+    timeout-minutes: 240
     strategy:
       fail-fast: false
       max-parallel: 1   # Uno detrás de otro: Pexels limita las búsquedas por hora
